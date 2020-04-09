@@ -15,7 +15,7 @@
 
 // Global Variables
 struct Station myDetails;
-
+vector<vector<int>> grid;
 
 // Function Prototypes
 
@@ -35,7 +35,7 @@ void createServer() {
   myDetails.networkInfo.portNo = portNo;
 
 
-  cout << "My Port No. " << portNo << "\n";
+//  cout << "My Port No. " << portNo << "\n";
 
   int server_fd, new_socket;
   int opt = 1;
@@ -77,7 +77,7 @@ void createServer() {
   }
 
 
-  cout << "Station is ready to listen to any messages\n";
+//  cout << "Station is ready to listen to any messages\n";
 
   printStationInfo(&myDetails);
 
@@ -107,6 +107,55 @@ void createServer() {
 
 
 
+void connectToInitiator() {
+
+  int sock;
+  struct sockaddr_in serv_addr;
+  int initiatorPortNo = 9000;
+
+  int recv_msg;
+
+  // create socket descriptor
+  if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    perror("station.cpp:connectToInitiator() -> socket descriptor failed\n");
+    exit(EXIT_FAILURE);
+  }
+
+  serv_addr.sin_family = AF_INET;
+  serv_addr.sin_port = htons(initiatorPortNo);
+
+  // convert ipv4 address from text to binary info
+  if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
+    perror("station.cpp:connectToInitiator() -> invalid address not supported\n");
+    exit(EXIT_FAILURE);
+  }
+
+  // connect to server 127.0.0.1:9000
+  if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+    perror("station.cpp:connectToInitiator() -> connection failed\n");
+    exit(EXIT_FAILURE);
+  }
+
+  // send initial message about being a station
+  int msg = I_AM_STATION;
+  send(sock, &msg, sizeof(msg), 0);
+
+
+  // receive station id from station
+
+
+  // receive broadcast message from initiator about number of robots, stations
+
+
+  // receive broadcast message from initiator about other robot, station information  
+}
+
+
+
+
+
+
+
 /*
 Function to Place Order from Customer
 */
@@ -129,11 +178,14 @@ Dummy Function for Items
 */
 struct Item* insertItems() {
   struct Item items[5];
+  struct Item *tmp;
   int i;
   for(i=0;i<5;i++) {
-    items[i].itemId = i;
-    items[i].currentNo = 10;
-//    items[i].Coords = getCoords(i+1,i+1);
+    tmp = createItem(i+1, 10, i+1,i+1);
+    items[i].itemId = tmp->itemId;
+    items[i].currentCount = tmp->currentCount;
+    items[i].coords = tmp->coords;
+    //placeItemOnGrid(grid, items[i].coords);
   }
 }
 
@@ -142,7 +194,9 @@ int main() {
 
   srand(time(0));
   myDetails.stationId = generateStationId();
-  cout << "My Station ID: " << myDetails.stationId << "\n";
+//  cout << "My Station ID: " << myDetails.stationId << "\n";
+
+  insertItems();
 
   thread th1(createServer);
   th1.join();

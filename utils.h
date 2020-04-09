@@ -19,6 +19,10 @@ using namespace std;
 #define ROBOT 3
 #define STATION 4
 #define ITEM 5
+#define I_AM_ROBOT 6
+#define I_AM_STATION 7
+#define BROADCAST_ROBOT_INFO 8
+#define BROADCAST_STATION_INFO 9
 
 
 /*
@@ -38,8 +42,8 @@ struct Coords {
 
 struct Item {
   int itemId;
-  int currentNo;
-  struct Coords;
+  int currentCount;
+  struct Coords* coords;
 };
 
 struct Order {
@@ -112,12 +116,12 @@ bool checkStationId(int id) {
 /*
 Function to get Coords Structure in return
 */
-struct Coords getCoords(int x, int y) {
-  struct Coords coords;
-  coords.x = x;
-  coords.y = y;
-  return coords;
-}
+// struct Coords getCoords(int x, int y) {
+//   struct Coords coords;
+//   coords.x = x;
+//   coords.y = y;
+//   return coords;
+// }
 
 
 /*
@@ -205,9 +209,9 @@ void printStationInfo(struct Station* station) {
 /*
 Function to place items on the grid
 */
-void placeItemOnGrid(vector<vector<int>> grid, struct Coords coords) {
-  int x = coords.x;
-  int y = coords.y;
+void placeItemOnGrid(vector<vector<int>> grid, struct Coords* coords) {
+  int x = coords->x;
+  int y = coords->y;
   grid[x][y] = ITEM;
 }
 
@@ -224,4 +228,58 @@ void printGrid(vector<vector<int>> grid) {
     }
     cout << "\n";
   }
+}
+
+
+/*
+Function to generate Item ID
+Should be in range of 5000-6000
+*/
+int generateItemId() {
+  int tmp;
+  int itemId;
+  int i;
+
+  itemId = 5;
+  for(i=1;i<=3;i++) {
+    tmp = rand()%10;
+    itemId = itemId*10 + tmp;
+  }
+
+  return itemId;
+}
+
+struct Coords* setCoords(int x, int y) {
+  struct Coords* coords = (struct Coords *)malloc(sizeof(struct Coords));
+  coords->x = x;
+  coords->y = y;
+  return coords;
+}
+
+void printMsg(string str) {
+  cout << str << "\n";
+}
+
+
+/*
+Function to create Item
+*/
+struct Item* createItem(int itemId, int count, int x, int y) {
+
+  struct Item* item = NULL;
+  item = (struct Item *)malloc(sizeof(struct Item));
+
+  item->itemId = itemId;
+  item->currentCount = count;
+  item->coords = setCoords(x, y);
+
+  return item;
+
+}
+
+/*
+Function to set stock of a particular item
+*/
+void setItemCount(struct Item* item, int count) {
+  item->currentCount = count;
 }
