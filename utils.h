@@ -16,6 +16,10 @@ using namespace std;
 
 #define ACTIVE 1
 #define PASSIVE 2
+#define ROBOT 3
+#define STATION 4
+#define ITEM 5
+
 
 /*
 Station ID will be in range from 100-199
@@ -49,8 +53,8 @@ struct Robot {
   int state;
   struct Network networkInfo;
   struct Coords currentCoords;
-  struct robot* robotsInfo;
-  struct station* stationsInfo;
+//  struct robot* robotsInfo;
+//  struct station* stationsInfo;
 };
 
 struct Station {
@@ -58,7 +62,7 @@ struct Station {
   int orderQueue;
   int exitQueue;
   struct Network networkInfo;
-  struct Station* stationsInfo;
+//  struct Station* stationsInfo;
 };
 
 struct RouteInfo {
@@ -80,6 +84,8 @@ All port no will be 4 digit number starting with 9
 MSG: GET_PORT_NO
 */
 int generatePortNo() {
+
+  srand(time(0));
   int tmp;
   int portNo;
   int i;
@@ -104,6 +110,17 @@ bool checkStationId(int id) {
 }
 
 /*
+Function to get Coords Structure in return
+*/
+struct Coords getCoords(int x, int y) {
+  struct Coords coords;
+  coords.x = x;
+  coords.y = y;
+  return coords;
+}
+
+
+/*
 Function to generate robot id
 All robot id will be in range from 1000-1999
 MSG: GET_ROBOT_ID
@@ -121,6 +138,8 @@ int generateRobotId() {
 
   return robotId;
 }
+
+
 
 
 /*
@@ -181,4 +200,28 @@ void printStationInfo(struct Station* station) {
   cout << "===== Station Information =====\n";
   cout << "Station ID: " << station->stationId << "\n";
   cout << "Port No: " << station->networkInfo.portNo << "\n";
+}
+
+/*
+Function to place items on the grid
+*/
+void placeItemOnGrid(vector<vector<int>> grid, struct Coords coords) {
+  int x = coords.x;
+  int y = coords.y;
+  grid[x][y] = ITEM;
+}
+
+
+/*
+Function to print Entire Grid showing robot, items, stations
+*/
+void printGrid(vector<vector<int>> grid) {
+  int i,j,n;
+  n = grid.size();
+  for(i=0;i<n;i++) {
+    for(j=0;j<n;j++) {
+      cout << grid[i][j] << " ";
+    }
+    cout << "\n";
+  }
 }
