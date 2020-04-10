@@ -21,8 +21,8 @@ using namespace std;
 #define ITEM 5
 #define I_AM_ROBOT 6
 #define I_AM_STATION 7
-#define BROADCAST_ROBOT_INFO 8
-#define BROADCAST_STATION_INFO 9
+#define ROBOT_INFO 8
+#define STATION_INFO 9
 
 
 /*
@@ -189,21 +189,27 @@ int generateOrderId() {
 /*
 Function to print Robot Information
 */
-void printRobotInfo(struct Robot* robot) {
+void printRobotInfo(struct Robot* robot, int n) {
+  int i;
   cout << "===== Robot Information =====\n";
-  cout << "Robot ID: " << robot->robotId << "\n";
-  cout << "State: " << robot->state << "\n";
-  cout << "Port No: " << robot->networkInfo.portNo << "\n";
-  cout << "Current Location: " << robot->currentCoords.x << " " << robot->currentCoords.y << "\n";
+  for(i=0;i<n;i++) {
+    cout << "Robot ID: " << robot[i].robotId << "\n";
+    cout << "State: " << robot[i].state << "\n";
+    cout << "Port No: " << robot[i].networkInfo.portNo << "\n";
+    cout << "Current Location: " << robot[i].currentCoords.x << " " << robot[i].currentCoords.y << "\n";
+  }
 }
 
 /*
 Function to print Station Information
 */
-void printStationInfo(struct Station* station) {
+void printStationInfo(struct Station* station, int n) {
+  int i;
   cout << "===== Station Information =====\n";
-  cout << "Station ID: " << station->stationId << "\n";
-  cout << "Port No: " << station->networkInfo.portNo << "\n";
+  for(i=0;i<n;i++) {
+    cout << "Station ID: " << station[i].stationId << "\n";
+    cout << "Port No: " << station[i].networkInfo.portNo << "\n";
+  }
 }
 
 /*

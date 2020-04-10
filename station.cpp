@@ -16,9 +16,15 @@
 // Global Variables
 struct Station myDetails;
 vector<vector<int>> grid;
+int robot_count;
+int station_count;
+Robot* robots;
+Station* stations;
+
 
 // Function Prototypes
-
+void createServer();
+void connectToInitiator();
 
 
 
@@ -34,8 +40,7 @@ void createServer() {
   portNo = generatePortNo();
   myDetails.networkInfo.portNo = portNo;
 
-
-//  cout << "My Port No. " << portNo << "\n";
+//  printMsg("station.cpp:createServer() -> Listening on Port " + to_string(portNo));
 
   int server_fd, new_socket;
   int opt = 1;
@@ -76,10 +81,9 @@ void createServer() {
     exit(EXIT_FAILURE);
   }
 
-
-//  cout << "Station is ready to listen to any messages\n";
-
-  printStationInfo(&myDetails);
+  // printStationInfo(&myDetails);
+  thread th1(connectToInitiator);
+  th1.detach();
 
   while(1) {
 
@@ -114,6 +118,7 @@ void connectToInitiator() {
   int initiatorPortNo = 9000;
 
   int recv_msg;
+  int msg;
 
   // create socket descriptor
   if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -137,17 +142,42 @@ void connectToInitiator() {
   }
 
   // send initial message about being a station
-  int msg = I_AM_STATION;
-  send(sock, &msg, sizeof(msg), 0);
-
+  msg = I_AM_STATION;
+  // match-1
+  send(sock, &msg, sizeof(int), 0);
 
   // receive station id from station
+  // match-2
+  recv_msg = read(sock, &myDetails.stationId, sizeof(int));
 
+  printStationInfo(&myDetails, 1);
+
+  // send myDetails i.e. struct Station
+  // match-3
+  send(sock, &myDetails, sizeof(Station), 0);
 
   // receive broadcast message from initiator about number of robots, stations
+  // match-4
+  recv_msg = read(sock, &robot_count, sizeof(int));
+  recv_msg = read(sock, &station_count, sizeof(int));
+
+  robots = (Robot *)malloc(robot_count*sizeof(Robot));
+  stations = (Station *)malloc(station_count*sizeof(Station));
 
 
-  // receive broadcast message from initiator about other robot, station information  
+  // receive broadcast message from initiator about other robot, station information
+  // match-5
+  printMsg("At match-5 step begin");
+  int val;
+  recv_msg = read(sock, robots, robot_count*sizeof(Robot));
+  recv_msg = read(sock, stations, station_count*sizeof(Station));
+  printMsg("At match-5 step end");
+
+  printMsg(to_string(myDetails.stationId) + ":station.cpp:connectToInitiator() -> received broadcast information from initiiator\n");
+  printStationInfo(stations, station_count);
+  //printRobotInfo(robots, robot_count);
+  close(sock);
+
 }
 
 
@@ -193,14 +223,20 @@ struct Item* insertItems() {
 int main() {
 
   srand(time(0));
-  myDetails.stationId = generateStationId();
+//  myDetails.stationId = generateStationId();
 //  cout << "My Station ID: " << myDetails.stationId << "\n";
 
-  insertItems();
+//  insertItems();
+
+
+  myDetails.orderQueue = 10;
+  myDetails.exitQueue = 10;
 
   thread th1(createServer);
   th1.join();
 
-  struct Item items[5];
+//  struct Item items[5];
+
+  return 0;
 
 }
