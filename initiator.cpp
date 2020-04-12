@@ -13,11 +13,101 @@
 #include <chrono>
 #include "utils.h"
 
+
+using namespace std;
+
 // Global Variables
+
 int robot_count = 0;
 int station_count = 0;
+int item_count = 0;
 Robot* robots;
 Station* stations;
+Item* items;
+int grid_size;
+int **grid;
+
+
+// Function Prototype
+void sendBroadcastInfoToStation(int *);
+void sendBroadcastInfoToRobot(int *);
+void createItems();
+
+
+/* Function that inserts items */
+void createItems() {
+  int i;
+  int n;
+  cout << "Enter Number of Items to be inserted: ";
+  cin >> item_count;
+  n = item_count;
+
+  // items = (Item *)malloc(item_count*sizeof(Item));
+  // Item items[n];
+  //Coords coords;
+
+//  items = (struct Item *)malloc(n*sizeof(struct Item));
+  items = new Item[n];
+
+  for(i=0;i<n;i++) {
+    cout << "Enter Item Name: ";
+    cin >> items[i].name;
+    cout << "Enter Item Quantity: ";
+    cin >> items[i].currentCount;
+    cout << "Enter location of item in grid: ";
+    cin >> items[i].coords.x >> items[i].coords.y;
+    items[i].itemId = i;
+    placeOnGrid(items[i].coords, ITEM);
+    printMsg("initiator.cpp:createItem() -> Item-" + to_string(items[i].itemId) + " successfully placed");
+    printMsg("==============================================================");
+  }
+  // printGrid();
+}
+
+
+
+void placeRobots() {
+
+  int i;
+  Coords coord;
+//  cout << "in place robots\n";
+
+//  cout << "size " << (sizeof(robots)/sizeof(robots[0])) << "\n";
+
+  for(i=0;i<robot_count;i++) {
+    robots[i].robotId = i;
+    robots[i].state = PASSIVE;
+    cout << "enter coords for robot-" << robots[i].robotId << ": ";
+    cin >> coord.x >> coord.y;
+    robots[i].currentCoords = coord;
+    placeOnGrid(coord, ROBOT);
+    printMsg("initiator.cpp:placeRobots() -> Robot-" + to_string(robots[i].robotId) + " successfully placed");
+    printMsg("==============================================================");
+  }
+
+}
+
+
+
+void placeStation() {
+
+  int i;
+  Coords coord;
+
+  for(i=0;i<station_count;i++) {
+
+    stations[i].stationId = i;
+    stations[i].orderQueue = 10;
+    stations[i].exitQueue = 10;
+
+    cout << "enter coords for station-" << stations[i].stationId << ": ";
+    cin >> coord.x >> coord.y;
+    stations[i].coords = coord;
+    placeOnGrid(coord, STATION);
+    printMsg("initiator.cpp:placeStation() -> Station-" + to_string(stations[i].stationId) + " successfully placed");
+    printMsg("==============================================================");
+  }
+}
 
 
 void sendBroadcastInfoToStation(int* station_socket_info) {
@@ -25,6 +115,7 @@ void sendBroadcastInfoToStation(int* station_socket_info) {
   for(i=0;i<station_count;i++) {
     send(station_socket_info[i], robots, robot_count*sizeof(Robot), 0);
     send(station_socket_info[i], stations, station_count*sizeof(Station), 0);
+    send(station_socket_info[i], items, item_count*sizeof(Item), 0);
     printMsg("initiator.cpp:sendBroadcastInfoToStation() -> send broadcast message to station " + to_string(i));
   }
 }
@@ -35,7 +126,19 @@ void sendBroadcastInfoToRobot(int* robot_socket_info) {
   for(i=0;i<robot_count;i++) {
     send(robot_socket_info[i], robots, robot_count*sizeof(Robot), 0);
     send(robot_socket_info[i], stations, station_count*sizeof(Station), 0);
+    send(robot_socket_info[i], items, item_count*sizeof(Item), 0);
     printMsg("initiator.cpp:sendBroadcastInfoToStation() -> send broadcast message to robot " + to_string(i));
+  }
+}
+
+/* function to present the initial grid scenario */
+void sendBroadcastToAll(int* station_socket_info, int* robot_socket_info) {
+  int i;
+  for(i=0;i<robot_count;i++) {
+
+  }
+  for(i=0;i<station_count;i++) {
+
   }
 }
 
@@ -53,8 +156,6 @@ void createServer() {
   int robot_socket_info[robot_count];
   int station_socket_info[station_count];
 
-  robots = (Robot *)malloc(robot_count*sizeof(Robot));
-  stations = (Station *)malloc(station_count*sizeof(Station));
 
   Robot robot;
   Station station;
@@ -115,7 +216,7 @@ void createServer() {
     // match-1
     recv_msg = read(new_socket, &msg, sizeof(int));
 
-    if (msg == I_AM_ROBOT) {
+    if (msg == ROBOT) {
 
       robotId = robot_index;
 
@@ -125,21 +226,25 @@ void createServer() {
 
       // receive server port details from the robot
       // match-3
-      recv_msg = read(new_socket, &robot, sizeof(Robot));
+      recv_msg = read(new_socket, &robot.networkInfo.portNo, sizeof(int));
+      robots[robot_index].networkInfo.portNo = robot.networkInfo.portNo;
+      send(new_socket, &robots[robot_index], sizeof(Robot), 0);
 
 
       // send robot, station count information
       // match-4
       send(new_socket, &robot_count, sizeof(int), 0);
       send(new_socket, &station_count, sizeof(int), 0);
+      send(new_socket, &item_count, sizeof(int), 0);
+      send(new_socket, &grid_size, sizeof(int), 0);
 
 
       printMsg("===== New Robot Connected =====");
       printMsg("Robot ID: " + to_string(robotId));
       printMsg("Robot Server Port: " + to_string(robot.networkInfo.portNo));
       printMsg("==================================================================");
+      printRobotInfo(&robots[robot_index], 1);
 
-      robots[robot_index] = robot;
 
       // save robot socket info for sending broadcast message later on
       robot_socket_info[robot_index] = new_socket;
@@ -147,68 +252,108 @@ void createServer() {
       robot_index++;
 
       if (robot_index == robot_count) {
+
         //sendBroadcastInfoToRobot(robots, robot_count);
         // socket info, msg
+        //sendBroadcastInfoToRobot(robot_socket_info);
+        printMsg("initiator.cpp:createServer() -> Waiting for Station to get Connected");
+
+        }
+      }
+
+      else {
+
+        int stationId = station_index;
+
+        // send station id information to the station
+        // match-2
+        send(new_socket, &stations[station_index].stationId, sizeof(int), 0);
+
+
+        // receive station details i.e. struct Station
+        // match-3
+        recv_msg = read(new_socket, &station.networkInfo.portNo, sizeof(int));
+        stations[station_index].networkInfo.portNo = station.networkInfo.portNo;
+        send(new_socket, &stations[station_index], sizeof(Station), 0);
+
+
+        // send robot, station count information
+        // match-4
+        send(new_socket, &robot_count, sizeof(int), 0);
+        send(new_socket, &station_count, sizeof(int), 0);
+        send(new_socket, &item_count, sizeof(int), 0);
+        send(new_socket, &grid_size, sizeof(int), 0);
+
+
+        printMsg("=================== New Station Connected ========================");
+        printMsg("Station ID: " + to_string(stations[station_index].stationId));
+        printMsg("Station Server Port: " + to_string(stations[station_index].networkInfo.portNo));
+        printMsg("===================================");
+        printStationInfo(&stations[station_index], 1);
+        printMsg("==================================================================");
+
+        // save station socket information for later use
+        station_socket_info[station_index] = new_socket;
+
+        station_index++;
+
+        if (station_index == station_count) {
+          // match-5
+          // sendBroadcastInfoToStation(station_socket_info);
+          printMsg("initiator.cpp:createServer() -> Waiting for Robots to get Connected");
+        }
+      }
+
+      if (robot_index == robot_count && station_index == station_count) {
+
         sendBroadcastInfoToRobot(robot_socket_info);
-        printMsg("initiator.cpp:createServer() -> send broadcast information to all robots");
-      }
-
-    }
-
-    else {
-      int stationId = station_index;
-
-      // send station id information to the station
-      // match-2
-      send(new_socket, &stationId, sizeof(int), 0);
-
-
-      // receive station details i.e. struct Station
-      // match-3
-      recv_msg = read(new_socket, &station, sizeof(Station));
-
-
-      // send robot, station count information
-      // match-4
-      send(new_socket, &robot_count, sizeof(int), 0);
-      send(new_socket, &station_count, sizeof(int), 0);
-
-
-      printMsg("===== New Station Connected =====");
-      printMsg("Station ID: " + to_string(stationId));
-      printMsg("Station Server Port: " + to_string(station.networkInfo.portNo));
-      printMsg("==================================================================");
-
-      stations[station_index] = station;
-
-      // save station socket information for later use
-      station_socket_info[station_index] = new_socket;
-
-      station_index++;
-
-      if (station_index == station_count) {
-        // match-5
         sendBroadcastInfoToStation(station_socket_info);
-        printMsg("initiator.cpp:createServer() -> send broadcast information to all stations");
-      }
-    }
 
-    if (robot_index == robot_count && station_index == station_count) {
-      //sendBroadcastInfoToRobot(robot_socket_info);
-      //sendBroadcastInfoToStation(station_socket_info);
-      printMsg("initator.cpp:createServer() -> System is online now ..... ");
-      break;
-    }
+        printRobotInfo(robots, robot_count);
+        printStationInfo(stations, station_count);
+        printGrid();
+
+        printMsg("initiator.cpp:createServer() -> send broadcast message to all robots/stations ..... ");
+        printMsg("initiator.cpp:createServer() -> System is online now ....");
+
+        break;
+
+      }
   }
-  // need to find proper way to close the socket connection
-  // close(socket);
+    // need to find proper way to close the socket connection
+    // close(socket);
 }
+
 
 
 int main() {
 
   robot_count = 4;
   station_count = 2;
+//  item_count = 5;
+  grid_size = 10;
+
+  //int grid[10][10];
+  grid = (int **)malloc(grid_size*sizeof(int *));
+  int i;
+  for(i=0;i<grid_size;i++)
+    grid[i] = (int *)malloc(grid_size*sizeof(int));
+
+  //robots = (Robot *)malloc(robot_count*sizeof(Robot));
+  robots = new Robot[robot_count];
+  stations = (Station *)malloc(station_count*sizeof(Station));
+  // items = (Item *)malloc(item_count*sizeof(Item));
+
+
+  createItems();
+  placeRobots();
+  placeStation();
+
+  printRobotInfo(robots, robot_count);
+  printStationInfo(stations, station_count);
+  printGrid();
+
+
 
   thread th1(createServer);
   th1.join();

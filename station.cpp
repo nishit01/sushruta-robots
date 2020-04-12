@@ -13,13 +13,19 @@
 #include <chrono>
 #include "utils.h"
 
+using namespace std;
+
+
 // Global Variables
 struct Station myDetails;
-vector<vector<int>> grid;
 int robot_count;
 int station_count;
+int item_count;
 Robot* robots;
 Station* stations;
+Item* items;
+int grid_size;
+int** grid;
 
 
 // Function Prototypes
@@ -142,28 +148,33 @@ void connectToInitiator() {
   }
 
   // send initial message about being a station
-  msg = I_AM_STATION;
+  msg = STATION;
   // match-1
   send(sock, &msg, sizeof(int), 0);
 
   // receive station id from station
   // match-2
   recv_msg = read(sock, &myDetails.stationId, sizeof(int));
+  // printStationInfo(&myDetails, 1);
 
-  printStationInfo(&myDetails, 1);
 
   // send myDetails i.e. struct Station
   // match-3
-  send(sock, &myDetails, sizeof(Station), 0);
+  send(sock, &myDetails.networkInfo.portNo, sizeof(int), 0);
+  recv_msg = read(sock, &myDetails, sizeof(Station));
+  printStationInfo(&myDetails, 1);
 
   // receive broadcast message from initiator about number of robots, stations
   // match-4
   recv_msg = read(sock, &robot_count, sizeof(int));
   recv_msg = read(sock, &station_count, sizeof(int));
+  recv_msg = read(sock, &item_count, sizeof(int));
+  recv_msg = read(sock, &grid_size, sizeof(int));
+
 
   robots = (Robot *)malloc(robot_count*sizeof(Robot));
   stations = (Station *)malloc(station_count*sizeof(Station));
-
+  items = (Item *)malloc(item_count*sizeof(Item));
 
   // receive broadcast message from initiator about other robot, station information
   // match-5
@@ -171,11 +182,17 @@ void connectToInitiator() {
   int val;
   recv_msg = read(sock, robots, robot_count*sizeof(Robot));
   recv_msg = read(sock, stations, station_count*sizeof(Station));
+  recv_msg = read(sock, items, item_count*sizeof(Item));
   printMsg("At match-5 step end");
 
-  printMsg(to_string(myDetails.stationId) + ":station.cpp:connectToInitiator() -> received broadcast information from initiiator\n");
+  printMsg(to_string(myDetails.stationId) + ":station.cpp:connectToInitiator() -> received broadcast information from initiator");
+
+  printRobotInfo(robots, robot_count);
   printStationInfo(stations, station_count);
-  //printRobotInfo(robots, robot_count);
+
+  initializeGrid();
+  printGrid();
+
   close(sock);
 
 }

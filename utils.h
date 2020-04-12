@@ -19,8 +19,7 @@ using namespace std;
 #define ROBOT 3
 #define STATION 4
 #define ITEM 5
-#define I_AM_ROBOT 6
-#define I_AM_STATION 7
+#define ORDER 6
 #define ROBOT_INFO 8
 #define STATION_INFO 9
 
@@ -42,8 +41,9 @@ struct Coords {
 
 struct Item {
   int itemId;
+  string name;
   int currentCount;
-  struct Coords* coords;
+  struct Coords coords;
 };
 
 struct Order {
@@ -65,6 +65,7 @@ struct Station {
   int stationId;
   int orderQueue;
   int exitQueue;
+  struct Coords coords;
   struct Network networkInfo;
 //  struct Station* stationsInfo;
 };
@@ -72,7 +73,7 @@ struct Station {
 struct RouteInfo {
   int itemId;
   int distance;
-  struct Coords* route;
+  struct Coords route;
 };
 
 struct DeliverItem {
@@ -81,6 +82,29 @@ struct DeliverItem {
   struct Coords itemCoords;
 };
 
+// global Variables
+//int grid[20][20];
+extern int** grid;
+extern int grid_size;
+extern int robot_count;
+extern int station_count;
+extern int item_count;
+extern Robot* robots;
+extern Station* stations;
+extern Item* items;
+
+/* Function Prototype */
+int generatePortNo();
+
+
+int generateRobotId();
+int generateStationId();
+
+void printRobotInfo(Robot*, int);
+void printStationInfo(Station*, int);
+
+void initializeGrid();
+void printMsg(string str);
 
 /*
 Function to generate port no for robot and station
@@ -112,6 +136,62 @@ bool checkRobotId(int id) {
 bool checkStationId(int id) {
   return true;
 }
+
+/*
+Function to place items on the grid
+*/
+void placeOnGrid(Coords coords, int identity) {
+  int x = coords.x;
+  int y = coords.y;
+  grid[x][y] = identity;
+}
+
+
+
+void initializeGrid() {
+  int i,j;
+  grid = (int **)malloc(grid_size*sizeof(int *));
+
+  // allocating grid size
+  for(i=0;i<grid_size;i++) {
+    grid[i] = (int *)malloc(grid_size*sizeof(int));
+  }
+
+  // grid = new int[grid_size][grid_size];
+
+  for(i=0;i<grid_size;i++) {
+    for(j=0;j<grid_size;j++) {
+      grid[i][j] = 0;
+    }
+  }
+
+  // placing robots
+  for(i=0;i<robot_count;i++) {
+    placeOnGrid(robots[i].currentCoords, ROBOT);
+  }
+
+  // placing stations
+  for(i=0;i<station_count;i++) {
+    placeOnGrid(stations[i].coords, STATION);
+  }
+
+  // placing item
+  for(i=0;i<item_count;i++) {
+    placeOnGrid(items[i].coords, ITEM);
+  }
+
+  printMsg("initializeGrid() -> all robots, stations and items successfully placed");
+}
+
+
+void printItemInfo(Item* items, int n) {
+  int i;
+  for(i=0;i<n;i++) {
+    printMsg("Item " + to_string(items[i].itemId));
+    printMsg("Item Location " + to_string(items[i].coords.x) + " " + to_string(items[i].coords.y));
+  }
+}
+
 
 /*
 Function to get Coords Structure in return
@@ -209,25 +289,19 @@ void printStationInfo(struct Station* station, int n) {
   for(i=0;i<n;i++) {
     cout << "Station ID: " << station[i].stationId << "\n";
     cout << "Port No: " << station[i].networkInfo.portNo << "\n";
+    cout << "Location: " << station[i].coords.x << " " << station[i].coords.y << "\n";
   }
 }
 
-/*
-Function to place items on the grid
-*/
-void placeItemOnGrid(vector<vector<int>> grid, struct Coords* coords) {
-  int x = coords->x;
-  int y = coords->y;
-  grid[x][y] = ITEM;
-}
+
 
 
 /*
 Function to print Entire Grid showing robot, items, stations
 */
-void printGrid(vector<vector<int>> grid) {
+void printGrid() {
   int i,j,n;
-  n = grid.size();
+  n = grid_size;
   for(i=0;i<n;i++) {
     for(j=0;j<n;j++) {
       cout << grid[i][j] << " ";
@@ -255,10 +329,11 @@ int generateItemId() {
   return itemId;
 }
 
-struct Coords* setCoords(int x, int y) {
-  struct Coords* coords = (struct Coords *)malloc(sizeof(struct Coords));
-  coords->x = x;
-  coords->y = y;
+struct Coords setCoords(int x, int y) {
+  // struct Coords* coords = (struct Coords *)malloc(sizeof(struct Coords));
+  Coords coords;
+  coords.x = x;
+  coords.y = y;
   return coords;
 }
 
