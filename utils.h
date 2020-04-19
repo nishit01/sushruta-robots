@@ -41,7 +41,7 @@ struct Coords {
 
 struct Item {
   int itemId;
-  string name;
+  char name[100];
   int currentCount;
   struct Coords coords;
 };
@@ -147,6 +147,11 @@ void placeOnGrid(Coords coords, int identity) {
 }
 
 
+/*
+ * Function to get Item Details
+ */
+
+
 
 void initializeGrid() {
   int i,j;
@@ -184,10 +189,11 @@ void initializeGrid() {
 }
 
 
-void printItemInfo(Item* items, int n) {
+void printItemInfo(Item* items) {
   int i;
-  for(i=0;i<n;i++) {
+  for(i=0;i<item_count;i++) {
     printMsg("Item " + to_string(items[i].itemId));
+    printMsg("Item Name " + string(items[i].name));
     printMsg("Item Location " + to_string(items[i].coords.x) + " " + to_string(items[i].coords.y));
   }
 }

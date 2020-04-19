@@ -178,7 +178,7 @@ void connectToInitiator() {
 
   printRobotInfo(robots, robot_count);
   printStationInfo(stations, station_count);
-  printItemInfo(items, item_count);
+//  printItemInfo(items);
 
 
   initializeGrid();

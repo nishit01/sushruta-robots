@@ -328,35 +328,36 @@ void createServer() {
 
 int main() {
 
-  robot_count = 4;
-  station_count = 2;
-//  item_count = 5;
-  grid_size = 10;
 
-  //int grid[10][10];
-  grid = (int **)malloc(grid_size*sizeof(int *));
-  int i;
-  for(i=0;i<grid_size;i++)
-    grid[i] = (int *)malloc(grid_size*sizeof(int));
+	cin >> robot_count >> station_count >> grid_size;
+	// robot_count = 4;
+	// station_count = 2;
+	//  item_count = 5;
+	// grid_size = 10;
 
-  //robots = (Robot *)malloc(robot_count*sizeof(Robot));
-  robots = new Robot[robot_count];
-  stations = (Station *)malloc(station_count*sizeof(Station));
-  // items = (Item *)malloc(item_count*sizeof(Item));
+	//int grid[10][10];
+	grid = (int **)malloc(grid_size*sizeof(int *));
+	int i;
+	for(i=0;i<grid_size;i++)
+	grid[i] = (int *)malloc(grid_size*sizeof(int));
 
-
-  createItems();
-  placeRobots();
-  placeStation();
-
-  printRobotInfo(robots, robot_count);
-  printStationInfo(stations, station_count);
-  printGrid();
+	//robots = (Robot *)malloc(robot_count*sizeof(Robot));
+	robots = new Robot[robot_count];
+	stations = (Station *)malloc(station_count*sizeof(Station));
+	// items = (Item *)malloc(item_count*sizeof(Item));
 
 
+	createItems();
+	placeRobots();
+	placeStation();
 
-  thread th1(createServer);
-  th1.join();
+	printRobotInfo(robots, robot_count);
+	printStationInfo(stations, station_count);
+	printGrid();
 
-  return 0;
+
+	thread th1(createServer);
+	th1.join();
+
+	return 0;
 }

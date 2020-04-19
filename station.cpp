@@ -31,7 +31,9 @@ int** grid;
 // Function Prototypes
 void createServer();
 void connectToInitiator();
-
+void placeOrder();
+void showItems(Item* items);
+//void insertItems();
 
 
 
@@ -89,8 +91,13 @@ void createServer() {
 
   // printStationInfo(&myDetails);
   thread th1(connectToInitiator);
-  th1.detach();
+  th1.join();
 
+  // order placing thread
+  thread th2(placeOrder);
+  th2.detach();
+
+  printMsg("station.cpp:createServer() -> " + to_string(myDetails.stationId) + " is up and running ");
   while(1) {
 
     // accept new connection
@@ -187,26 +194,17 @@ void connectToInitiator() {
 
   printMsg(to_string(myDetails.stationId) + ":station.cpp:connectToInitiator() -> received broadcast information from initiator");
 
-  printRobotInfo(robots, robot_count);
-  printStationInfo(stations, station_count);
+//  printRobotInfo(robots, robot_count);
+//  printStationInfo(stations, station_count);
+//  printItemInfo(items);
 
   initializeGrid();
-  printGrid();
+//  printGrid();
+
+  // thread th1(showItems);
+  // th1.detach();
 
   close(sock);
-
-}
-
-
-
-
-
-
-
-/*
-Function to Place Order from Customer
-*/
-void placeOrder() {
 
 }
 
@@ -214,27 +212,70 @@ void placeOrder() {
 /*
 Function to Show List of Items
 */
-void showItems() {
+void showItems(Item* items) {
+	int i;
+	printMsg("========= Item Details =========");
+	for(i=0;i<item_count;i++) {
+		printMsg(to_string(i) + ". " + string(items[i].name));
+	}
+}
+
+
+
+
+/*
+ * Function to place order from customer
+ */
+void placeOrder() {
+
+	int itemId;
+	Item item;
+
+	while(1) {
+		showItems(items);
+//		printMsg("Enter Item-ID to place order for: ");
+		cout << "Enter Item-ID to place order for: ";
+		cin >> itemId;
+		if (itemId < 0 || itemId >= itemCount)
+			continue;
+		item = items[itemId];
+		printMsg("Item Name: " + string(items[itemId].name));
+		printMsg("Item ID: " + to_string(items[itemId].itemId));
+		printMsg("Item Location: " + to_string(items[itemId].coords.x) + " " + to_string(items[itemId].coords.y));
+		printMsg("Order Successfully Placed");
+		broadcastOrderMessageToRobots();
+	}
+}
+
+
+
+/*
+ * Function to broadcast order details to all the robots
+ */
+void broadcastOrderMessageToRobots() {
 
 }
+
+
+
 
 
 
 /*
 Dummy Function for Items
 */
-struct Item* insertItems() {
-  struct Item items[5];
-  struct Item *tmp;
-  int i;
-  for(i=0;i<5;i++) {
-    tmp = createItem(i+1, 10, i+1,i+1);
-    items[i].itemId = tmp->itemId;
-    items[i].currentCount = tmp->currentCount;
-    items[i].coords = tmp->coords;
-    //placeItemOnGrid(grid, items[i].coords);
-  }
-}
+//struct Item* insertItems() {
+//  struct Item items[5];
+//  struct Item *tmp;
+//  int i;
+//  for(i=0;i<5;i++) {
+//    tmp = createItem(i+1, 10, i+1,i+1);
+//    items[i].itemId = tmp->itemId;
+//    items[i].currentCount = tmp->currentCount;
+//    items[i].coords = tmp->coords;
+//    //placeItemOnGrid(grid, items[i].coords);
+//  }
+//}
 
 
 int main() {
