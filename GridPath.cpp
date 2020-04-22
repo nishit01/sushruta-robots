@@ -70,8 +70,21 @@ vector<pair<int, int>> shortest(pair<int, int> src, pair<int, int> dest) {
 
 int main() {
 	pair<int, int> src = {5, 0}, dest = {6, 7};
-	vector<pair<int, int>> path = shortest(src, dest);
-	for (auto x : path) {
+	int min_length = INT_MAX;
+	vector<pair<int, int>> directions = {{0, 1}, {0, -1}, {1, 0}, { -1, 0}}, result_path;
+	for (auto d : directions) {
+		pair<int, int> new_dest = {dest.first + d.first, dest.second + d.second};
+		if (isvalid(new_dest)) {
+			vector<pair<int, int>> path = shortest(src, new_dest);
+			cout << "Distance between src and dest is " << path.size() << endl;
+			if (path.size() < min_length) {
+				result_path = path;
+				min_length = path.size();
+			}
+		}
+	}
+	cout << "Minimum path size: " << min_length << endl;
+	for (auto x : result_path) {
 		cout << x.first << "," << x.second << endl;
 	}
 	return 0;
