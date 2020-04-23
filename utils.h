@@ -20,9 +20,16 @@ using namespace std;
 #define STATION 4
 #define ITEM 5
 #define ORDER 6
+#define BLOCK_CELL 7
 #define ROBOT_INFO 8
 #define STATION_INFO 9
-
+#define REQUEST 10
+#define REPLY 11
+#define RELEASE 12
+#define ORDER_REQUEST 13
+#define ORDER_REPLY 14
+#define ORDER_RELEASE 15
+#define FREE_CELL 0
 
 /*
 Station ID will be in range from 100-199
@@ -49,7 +56,8 @@ struct Item {
 struct Order {
   int orderId;
   int stationId;
-  int* itemList;
+//  int* itemList;
+  int itemId;
 };
 
 struct Robot {
@@ -71,9 +79,12 @@ struct Station {
 };
 
 struct RouteInfo {
-  int itemId;
+//  int itemId;
   int distance;
-  struct Coords route;
+  int robotId;
+  vector<pair<int, int>> path1; // robot to item
+  vector<pair<int, int>> path2; // item to station
+  // struct Coords route;
 };
 
 struct DeliverItem {
@@ -92,6 +103,8 @@ extern int item_count;
 extern Robot* robots;
 extern Station* stations;
 extern Item* items;
+//extern bool isvalid(pair<int, int>);
+
 
 /* Function Prototype */
 int generatePortNo();
@@ -369,4 +382,245 @@ Function to set stock of a particular item
 */
 void setItemCount(struct Item* item, int count) {
   item->currentCount = count;
+}
+
+
+
+/*
+ * Function to send message to station
+ */
+void sendMsgToStation(int station_port_no, vector<int> msgs) {
+
+	int i;
+	int sock;
+	int recv_msg;
+	struct sockaddr_in serv_addr;
+
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		perror("utils.h:sendMsgToStation() ... socket description failed\n");
+		exit(EXIT_FAILURE);
+	}
+
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(station_port_no);
+
+	if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
+		perror("utils.h:sendMsgToStation() ... invalid address\n");
+		exit(EXIT_FAILURE);
+	}
+
+	// connect to other station' server thread
+	if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+	  perror("utils.h:sendMsgToStation() ... connection failed\n");
+	  exit(EXIT_FAILURE);
+	}
+
+
+	// send messages
+	int n = msgs.size();
+
+	// send n to inform station about the number of messages that will be transferred
+	// send(sock, &n, sizeof(int), 0);
+
+	for(i=0;i<n;i++) {
+		send(sock, &msgs[i], sizeof(int), 0);
+	}
+
+	// printMsg("utils.h:sendMsgToStation() ... completed sending message to station " + to_string(myDetails.networkInfo.portNo));
+
+	close(sock);
+
+}
+
+/*
+ * Function to send message to robot
+ */
+void sendMsgToRobot(int robot_port_no, vector<int> msgs) {
+
+	int i;
+	int sock;
+	int recv_msg;
+	struct sockaddr_in serv_addr;
+
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		perror("utils.h:sendMsgToRobot() ... socket description failed\n");
+		exit(EXIT_FAILURE);
+	}
+
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(robot_port_no);
+
+	if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
+		perror("utils.h:sendMsgToRobot() ... invalid address\n");
+		exit(EXIT_FAILURE);
+	}
+
+	// connect to other station' server thread
+	if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+	  perror("utils.h:sendMsgToRobot() ... connection failed\n");
+	  exit(EXIT_FAILURE);
+	}
+
+
+	// send messages
+	int n = msgs.size();
+
+	// send n to inform station about the number of messages that will be transferred
+	// send(sock, &n, sizeof(int), 0);
+
+	for(i=0;i<n;i++) {
+		send(sock, &msgs[i], sizeof(int), 0);
+	}
+
+	// printMsg("utils.h:sendMsgToStation() ... completed sending message to station " + to_string(myDetails.networkInfo.portNo));
+
+	close(sock);
+
+}
+
+
+bool isvalid(pair<int, int> next_point) {
+	if (next_point.first >= 0 && next_point.first < grid_size && next_point.second >= 0 && next_point.second < grid_size
+	        && grid[next_point.first][next_point.second] == 0) {
+		return true;
+	}
+	return false;
+}
+
+/*
+ * Function to read time
+ */
+long readTime() {
+  std::chrono::nanoseconds ms = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch());
+  long tmp = ms.count();
+  return tmp;
+}
+
+
+/*
+ * Function to broadcast messages to all robots
+ */
+void broadcastMsgToRobot(vector<int> msgs) {
+	int i;
+	for(i=0;i<robot_count;i++) {
+		sendMsgToRobot(robots[i].networkInfo.portNo, msgs);
+	}
+}
+
+/*
+ * Function to broadcast messages to all stations
+ */
+void broadcastMsgToStation(vector<int> msgs) {
+	int i;
+	int n = msgs.size();
+	for(i=0;i<station_count;i++) {
+		sendMsgToStation(stations[i].networkInfo.portNo, msgs);
+	}
+}
+
+
+
+/*
+ * Function to check whether the coordinate is valid coordinate
+ */
+//bool isvalid(pair<int, int> next_point) {
+//	if (next_point.first >= 0 && next_point.first < grid_size && next_point.second >= 0 && next_point.second < grid_size
+//	        && grid[next_point.first][next_point.second] == 0) {
+//		return true;
+//	}
+//
+//
+//	return false;
+//}
+
+
+/*
+ * Function to find the route from robot to item
+ */
+vector<pair<int, int>> getPredecessor(pair<int, int> src, pair<int, int> dest, vector<pair<int, int>> pred) {
+	vector<pair<int, int>> path;
+	queue<pair<int, int>> q;
+	q.push(src);
+	set<pair<int, int>> seen_points;
+	seen_points.insert(src);
+	while (!q.empty()) {
+		pair<int, int> current_point = q.front();
+		q.pop();
+		// cout << "current_point: " << current_point.first << " " << current_point.second << endl;
+		if (current_point == dest) {
+			return pred;
+		}
+		list<pair<int, int>> list_next = {
+			make_pair(current_point.first + 1, current_point.second), make_pair(current_point.first - 1, current_point.second),
+			make_pair(current_point.first, current_point.second + 1), make_pair(current_point.first, current_point.second - 1)
+		};
+		for (auto next_point : list_next) {
+			// cout << "Point to be seen: " << next_point.first << " " << next_point.second << endl;
+			if ((isvalid(next_point) || next_point == src || next_point == dest) &&
+			        find(seen_points.begin(), seen_points.end(), next_point) == seen_points.end()) {
+				// cout << "Pushing it in!" << endl;
+				q.push(next_point);
+				pred[(next_point.first * 10 + next_point.second)] = current_point;
+				seen_points.insert(next_point);
+			}
+		}
+	}
+	return pred;
+}
+
+
+
+/*
+ * Function to find the shortest path from robot to item
+ */
+vector<pair<int, int>> shortest(pair<int, int> src, pair<int, int> dest) {
+	vector<pair<int, int>> pred(grid_size * grid_size);
+	for (auto i = 0; i < grid_size * grid_size; i++)
+		pred[i] = make_pair(-1, -1);
+	pred = getPredecessor(src, dest, pred);
+	vector<pair<int, int>> path;
+	auto crawl = dest;
+	path.push_back(crawl);
+	while (pred[(crawl.first * grid_size + crawl.second)] != make_pair(-1, -1)) {
+		path.push_back(pred[(crawl.first * grid_size + crawl.second)]);
+		crawl = pred[(crawl.first * grid_size + crawl.second)];
+	}
+	reverse(path.begin(), path.end());
+	return path;
+}
+
+
+
+
+void updateGrid(int msg, RouteInfo route) {
+
+	vector<pair<int, int>> path1;
+	vector<pair<int, int>> path2;
+
+	path1 = route.path1;
+	path2 = route.path2;
+	pair<int, int> cell;
+	int i;
+
+	if (msg == BLOCK_CELL) {
+		for(i=1;i<path1.size()-1;i++) {
+			cell = path1[i];
+			grid[cell.first][cell.second] = BLOCK_CELL;
+		}
+		for(i=1;i<path2.size();i++) {
+			cell = path2[i];
+			grid[cell.first][cell.second] = BLOCK_CELL;
+		}
+	} else {
+		for(i=1;i<path1.size()-1;i++) {
+			cell = path1[i];
+			grid[cell.first][cell.second] = FREE_CELL;
+		}
+		for(i=1;i<path1.size();i++) {
+			cell = path2[i];
+			grid[cell.first][cell.second] = FREE_CELL;
+		}
+	}
+
+	printGrid();
 }

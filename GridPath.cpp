@@ -5,12 +5,12 @@ Assuming the grid is filled with 0's meaning, all paths are open
 If some path is already taken from a source to destination,
 then it is set is 1 which means that particular index is already taken
 */
-#define GRID_SIZE 10
-int grid[GRID_SIZE][GRID_SIZE];
+#define grid_size 10
+int grid[grid_size][grid_size];
 
 //checking valid node
 bool isvalid(pair<int, int> next_point) {
-	if (next_point.first >= 0 && next_point.first < GRID_SIZE && next_point.second >= 0 && next_point.second < GRID_SIZE
+	if (next_point.first >= 0 && next_point.first < grid_size && next_point.second >= 0 && next_point.second < grid_size
 	        && grid[next_point.first][next_point.second] == 0) {
 		return true;
 	}
@@ -51,16 +51,16 @@ vector<pair<int, int>> pred) {
 }
 
 vector<pair<int, int>> shortest(pair<int, int> src, pair<int, int> dest) {
-	vector<pair<int, int>> pred(GRID_SIZE * GRID_SIZE);
-	for (auto i = 0; i < GRID_SIZE * GRID_SIZE; i++)
+	vector<pair<int, int>> pred(grid_size * grid_size);
+	for (auto i = 0; i < grid_size * grid_size; i++)
 		pred[i] = make_pair(-1, -1);
 	pred = getPredecessor(src, dest, pred);
 	vector<pair<int, int>> path;
 	auto crawl = dest;
 	path.push_back(crawl);
-	while (pred[(crawl.first * 10 + crawl.second)] != make_pair(-1, -1)) {
-		path.push_back(pred[(crawl.first * 10 + crawl.second)]);
-		crawl = pred[(crawl.first * 10 + crawl.second)];
+	while (pred[(crawl.first * grid_size + crawl.second)] != make_pair(-1, -1)) {
+		path.push_back(pred[(crawl.first * grid_size + crawl.second)]);
+		crawl = pred[(crawl.first * grid_size + crawl.second)];
 	}
 	reverse(path.begin(), path.end());
 	return path;

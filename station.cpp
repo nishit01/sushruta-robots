@@ -11,6 +11,7 @@
 #include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
 #include <bits/stdc++.h>
 #include <chrono>
+#include <mutex>
 #include "utils.h"
 
 using namespace std;
@@ -21,11 +22,17 @@ struct Station myDetails;
 int robot_count;
 int station_count;
 int item_count;
+int order_count;
 Robot* robots;
 Station* stations;
 Item* items;
+unordered_map<int, Order> orders;
 int grid_size;
 int** grid;
+unordered_map<int, vector<pair<long, int>>> request_queue;
+
+
+std::mutex mtx;
 
 
 // Function Prototypes
@@ -35,6 +42,35 @@ void placeOrder();
 void showItems(Item* items);
 //void insertItems();
 
+
+/*
+ * Function to sort process request according to their time and id
+ */
+bool compareFunc(pair<long, int> pair1, pair<long, int> pair2) {
+	if (pair1.first < pair2.first)
+		return true;
+	else if (pair1.first == pair2.first) {
+		if (pair1.second < pair2.second)
+			return true;
+		else
+			return false;
+	}
+	else
+		return false;
+}
+
+/*
+ * Function to remove item from the request queue
+ */
+//void removeItemFromRequestQueue(int itemId, int stationId) {
+//	vector<pair<long, int>>::iterator itr;
+//	for(itr = request_queue[itemId].begin(); itr != request_queue[itemId].end(); itr++) {
+//		if (itr->second == stationId) {
+//			request_queue[itemId].erase(itr);
+//			break;
+//		}
+//	}
+//}
 
 
 /*
@@ -108,18 +144,12 @@ void createServer() {
 
     int msg;
     recv_msg = read(new_socket, &msg, sizeof(msg));
-    if (msg == 1) {
-      cout << "New Station is Connected\n";
-    }
-    else {
-      cout << "New Robot is Connected\n";
-    }
-    msg = -1;
-    send(new_socket, &msg, sizeof(int), 0);
-    cout << "Sent Welcome Message\n";
+    cout << "received message " << msg << "\n";
 
-    close(new_socket);
+
   }
+  close(new_socket);
+
 }
 
 
@@ -220,11 +250,77 @@ void showItems(Item* items) {
 	}
 }
 
+void broadcastItemRequestToStation(int itemId) {
+
+	int i;
+
+	vector<int> msgs;
+
+	msgs.push_back(REQUEST);
+	msgs.push_back(itemId);
+
+	for(i=0;i<station_count;i++) {
+		if (stations[i].stationId != myDetails.stationId) {
+			sendMsgToStation(stations[i].networkInfo.portNo, msgs);
+		}
+	}
+
+	printMsg("station.cpp:broadcastItemRequestToStation() ... all messages successfully sent\n");
+
+}
+
+
+/*
+ * Function to insert request in the queue
+ */
+void insertRequestInQueue(int itemId, int stationId, long request_time) {
+
+	mtx.lock();
+	{
+		request_queue[itemId].push_back({request_time, stationId});
+	}
+	mtx.unlock();
+
+}
+
+
+/*
+ * Function to process reply message
+ */
+void processReplyMsg(int itemId, int stationId, long ) {
+
+}
+
+
+/*
+ * Function to remove item from the queue
+ */
+//void removeRequestFromQueue(int itemId, int stationId) {
+//
+//	vector<pair<long, int>>::iterator itr;
+//	mtx.lock();
+//	{
+//		for(itr = request_queue[itemId].begin(); itr != request_queue.end(); itr++) {
+//			if (itr->second == stationId) {
+//				request_queue.erase(itr);
+//				break;
+//			}
+//		}
+//		sort(request_queue[itemId].begin(), request_queue[itemId].end(), compareFunc);
+//	}
+//	mtx.unlock();
+//}
+
+
 
 
 
 /*
  * Function to place order from customer
+ * Following Task will be done in this module
+ * 1. Customer placing its order i.e. item
+ * 2. Item will be broadcasted to all robots
+ *
  */
 void placeOrder() {
 
@@ -235,27 +331,64 @@ void placeOrder() {
 		showItems(items);
 //		printMsg("Enter Item-ID to place order for: ");
 		cout << "Enter Item-ID to place order for: ";
+
+		// Task-1
 		cin >> itemId;
-		if (itemId < 0 || itemId >= itemCount)
-			continue;
+//		if (itemId < 0 || itemId >= itemCount)
+//			continue;
 		item = items[itemId];
 		printMsg("Item Name: " + string(items[itemId].name));
 		printMsg("Item ID: " + to_string(items[itemId].itemId));
 		printMsg("Item Location: " + to_string(items[itemId].coords.x) + " " + to_string(items[itemId].coords.y));
+
+
+		vector<int> msgs;
+		msgs.push_back(ORDER_REQUEST);	// order-id
+
+		Order order;
+		int tmpId;
+
+		while(1) {
+			tmpId = generateOrderId();
+			if (orders.find(tmpId) == orders.end())
+				break;
+		}
+
+		order.orderId = tmpId;
+		order.stationId = myDetails.stationId;
+		order.itemId = item.itemId;
+
+		orders[order.orderId] = order;
+		order_count = order_count + 1;
+
+		msgs.push_back(order.orderId);
+		msgs.push_back(order.stationId);	// station-id
+		msgs.push_back(order.itemId);	// item-id
+
+		// Task-2
+		broadcastMsgToRobot(msgs);
+		printMsg("station.cpp:placeOrder() ... broadcasted message to all robots");
+
+
+
 		printMsg("Order Successfully Placed");
-		broadcastOrderMessageToRobots();
+
+		// check item availability by requesting all stations
+
+		// place request message in the request queue
+		// long request_time = readTime();
+
+
+		// insert item in the request queue
+		// insertRequestInQueue(item.itemId, myDetails.stationId, request_time);
+
+		// broadcastItemRequestToStation(itemId);
+
+
+		// check item
+		// broadcastOrderMessageToRobots();
 	}
 }
-
-
-
-/*
- * Function to broadcast order details to all the robots
- */
-void broadcastOrderMessageToRobots() {
-
-}
-
 
 
 
@@ -289,6 +422,7 @@ int main() {
 
   myDetails.orderQueue = 10;
   myDetails.exitQueue = 10;
+  order_count = 0;
 
   thread th1(createServer);
   th1.join();
