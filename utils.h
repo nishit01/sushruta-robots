@@ -616,7 +616,7 @@ void updateGrid(int msg, RouteInfo route) {
 			cell = path1[i];
 			grid[cell.first][cell.second] = FREE_CELL;
 		}
-		for(i=1;i<path1.size();i++) {
+		for(i=1;i<path2.size();i++) {
 			cell = path2[i];
 			grid[cell.first][cell.second] = FREE_CELL;
 		}

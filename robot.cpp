@@ -36,6 +36,7 @@ void createServer();
 void connectToInitiator();
 void getPath(Order, vector<pair<int, int>>&, vector<pair<int, int>>&);
 void computeRoute(Order);
+void moveRobot(int);
 
 /*
 Function to create server thread
@@ -181,13 +182,71 @@ void createServer() {
     		  cout << "Path from Robot to Item " << routes[reply_order_id].path1.size() - 1<< "\n";
     		  cout << "Path from Item to Station " << routes[reply_order_id].path2.size() - 1<< "\n";
     		  updateGrid(BLOCK_CELL, routes[reply_order_id]);
+    		  if (routes[reply_order_id].robotId == myDetails.robotId) {
+    			  cout << "I am the Leader ... \n";
+    			  myDetails.state = ACTIVE;
+    			  thread th1(moveRobot, reply_order_id);
+    			  th1.detach();
+    		  }
     	  }
 
+      } else if (msg == ORDER_RELEASE) {
+    	  int orderId;
+    	  read(new_socket, &orderId, sizeof(int));
+
+    	  cout << "Order Delivered\n";
+
+    	  updateGrid(FREE_CELL, routes[orderId]);
       }
 
       close(new_socket);
     }
 }
+
+
+
+void moveRobot(int orderId) {
+
+	int i;
+	RouteInfo route = routes[orderId];
+
+	vector<pair<int, int>> path1;
+	vector<pair<int, int>> path2;
+
+	path1 = route.path1;
+	path2 = route.path2;
+
+	cout << "Begin to move " << "\n";
+	for(i=0;i<path1.size() - 1;i++) {
+		sleep(1);
+		cout << "I am at location: " << path1[i].first << ", " << path1[i].second << "\n";
+	}
+
+	cout << "I am picking item " << path1[i].first << ", " << path1[i].second << "\n";
+	sleep(1);
+
+	cout << "Picked Item " << path2[0].first << ", " << path2[0].second << "\n";
+	sleep(1);
+
+	cout << "Moving towards Station " << "\n";
+	for(i=1;i<path2.size();i++) {
+		sleep(1);
+		cout << "I am at location: " << path2[i].first << ", " << path2[i].second << "\n";
+	}
+
+	cout << "Order Delivered\n";
+
+	int msg;
+	msg = ORDER_RELEASE;
+
+	vector<int> msgs;
+	msgs.push_back(ORDER_RELEASE);	 // msg-1
+	msgs.push_back(orderId); // msg-2
+
+	broadcastMsgToRobot(msgs);
+
+}
+
 
 
 void computeRoute(Order order) {
