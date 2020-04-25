@@ -88,7 +88,6 @@ void placeRobots() {
 }
 
 
-
 void placeStation() {
 
   int i;
@@ -104,6 +103,7 @@ void placeStation() {
     cin >> coord.x >> coord.y;
     stations[i].coords = coord;
     placeOnGrid(coord, STATION);
+    placeExitStand(coord);
     printMsg("initiator.cpp:placeStation() -> Station-" + to_string(stations[i].stationId) + " successfully placed");
     printMsg("==============================================================");
   }

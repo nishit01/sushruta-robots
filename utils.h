@@ -14,12 +14,13 @@
 
 using namespace std;
 
+#define FREE_CELL 0
 #define ACTIVE 1
 #define PASSIVE 2
 #define ROBOT 3
 #define STATION 4
 #define ITEM 5
-#define ORDER 6
+#define EXIT_STAND 6
 #define BLOCK_CELL 7
 #define ROBOT_INFO 8
 #define STATION_INFO 9
@@ -29,7 +30,7 @@ using namespace std;
 #define ORDER_REQUEST 13
 #define ORDER_REPLY 14
 #define ORDER_RELEASE 15
-#define FREE_CELL 0
+#define ORDER 16
 
 /*
 Station ID will be in range from 100-199
@@ -119,6 +120,9 @@ void printStationInfo(Station*, int);
 void initializeGrid();
 void printMsg(string str);
 
+bool isValidGridPosition(int, int);
+
+
 /*
 Function to generate port no for robot and station
 All port no will be 4 digit number starting with 9
@@ -161,8 +165,28 @@ void placeOnGrid(Coords coords, int identity) {
 
 
 /*
- * Function to get Item Details
+ * Function to place exit stands
  */
+void placeExitStand(Coords coord) {
+
+	int station_x = coord.x;
+	int station_y = coord.y;
+
+	Coords exit_coords;
+
+	vector<pair<int, int>> directions = { {-1,-1}, {-1,1}, {1,-1}, {1,1}};
+
+	for (auto d: directions) {
+
+		exit_coords.x = d.first + station_x;
+		exit_coords.y = d.second + station_y;
+
+		if (isValidGridPosition(exit_coords.x, exit_coords.y)) {
+			placeOnGrid(exit_coords, EXIT_STAND);
+			cout << "placing exit stand at " << exit_coords.x << ", " << exit_coords.y << "\n";
+		}
+	}
+}
 
 
 
@@ -191,6 +215,7 @@ void initializeGrid() {
   // placing stations
   for(i=0;i<station_count;i++) {
     placeOnGrid(stations[i].coords, STATION);
+    placeExitStand(stations[i].coords);
   }
 
   // placing item
@@ -312,6 +337,12 @@ void printStationInfo(struct Station* station, int n) {
   }
 }
 
+
+bool isValidGridPosition(int x, int y) {
+	if (x >= 0 && x < grid_size && y >= 0 && y < grid_size)
+		return true;
+	return false;
+}
 
 
 
@@ -612,14 +643,18 @@ void updateGrid(int msg, RouteInfo route) {
 			grid[cell.first][cell.second] = BLOCK_CELL;
 		}
 	} else {
-		for(i=1;i<path1.size()-1;i++) {
+		for(i=0;i<path1.size()-1;i++) {
 			cell = path1[i];
+			if (grid[cell.first][cell.second] == EXIT_STAND)
+				continue;
 			grid[cell.first][cell.second] = FREE_CELL;
 		}
 		for(i=1;i<path2.size();i++) {
 			cell = path2[i];
 			grid[cell.first][cell.second] = FREE_CELL;
 		}
+//		cell = path2[i];
+//		grid[cell.first][cell.second] = ROBOT;
 	}
 
 	printGrid();

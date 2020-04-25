@@ -37,6 +37,7 @@ void connectToInitiator();
 void getPath(Order, vector<pair<int, int>>&, vector<pair<int, int>>&);
 void computeRoute(Order);
 void moveRobot(int);
+void moveRobotToExitStand(int, int);
 
 /*
 Function to create server thread
@@ -197,10 +198,45 @@ void createServer() {
     	  cout << "Order Delivered\n";
 
     	  updateGrid(FREE_CELL, routes[orderId]);
+
+    	  if (routes[orderId].robotId == myDetails.robotId) {
+
+    		  vector<pair<int, int>> path = routes[orderId].path2;
+    		  pair<int, int> cell = path[path.size() - 1];
+
+    		  moveRobotToExitStand(cell.first, cell.second);
+
+//    		  myDetails.currentCoords.x = cell.first;
+//    		  myDetails.currentCoords.y = cell.second;
+
+    		  myDetails.state = PASSIVE;
+
+    	  }
+
+    	  printRobotInfo(&myDetails, 1);
+
       }
 
       close(new_socket);
     }
+}
+
+
+void moveRobotToExitStand(int station_neighbor_x, int station_neighbor_y) {
+
+	vector<pair<int, int>> directions = { {-1, 0}, {1,0}, {0,-1}, {0,1} }; // up, down. left, right
+	Coords exit_coords;
+
+	for(auto d: directions) {
+		exit_coords.x = d.first + station_neighbor_x;
+		exit_coords.y = d.second + station_neighbor_y;
+		if (isValidGridPosition(exit_coords.x, exit_coords.y) && grid[exit_coords.x][exit_coords.y] == 6) {
+			myDetails.currentCoords.x = exit_coords.x;
+			myDetails.currentCoords.y = exit_coords.y;
+			cout << "Robot New Position " << myDetails.currentCoords.x << ", " << myDetails.currentCoords.y << "\n";
+			break;
+		}
+	}
 }
 
 
@@ -348,14 +384,19 @@ void getPath(Order order, vector<pair<int, int>>& path1, vector<pair<int, int>>&
 	vector<pair<int, int>> tmp;
 	int min_length = INT_MAX;
 
-	pair<int, int> src2 = dst1;
+
+	pair<int, int> src2 = { items[order.itemId].coords.x, items[order.itemId].coords.y };
 	pair<int, int> dst2 = { stations[order.stationId].coords.x, stations[order.stationId].coords.y };
+
+	cout << "Source 2: " << src2.first << ", " << src2.second << "\n";
+	cout << "Destination 2: " << dst2.first << ", " << dst2.second << "\n";
 
 	vector<pair<int, int>> directions = {{0, 1}, {0, -1}, {1, 0}, { -1, 0}};
 
 	for (auto d : directions) {
 		pair<int, int> new_dest = {dst2.first + d.first, dst2.second + d.second};
 		if (isvalid(new_dest)) {
+			cout << "new dest " << new_dest.first << ", " << new_dest.second << "\n";
 			vector<pair<int, int>> tmp = shortest(src2, new_dest);
 			// cout << "Distance between src and dest is " << path.size() << endl;
 			if (tmp.size() < min_length) {
@@ -372,7 +413,9 @@ void getPath(Order order, vector<pair<int, int>>& path1, vector<pair<int, int>>&
 		cout << tmp.first << ", " << tmp.second << "\n";
 
 	cout << "Total Distance " << distance1 + distance2 << "\n\n";
-//	cout << "Path Shown\n";
+
+	// set grid position as it is
+	//	cout << "Path Shown\n";
 }
 
 
