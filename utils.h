@@ -31,6 +31,7 @@ using namespace std;
 #define ORDER_REPLY 14
 #define ORDER_RELEASE 15
 #define ORDER 16
+#define ORDER_DELIVERY 17
 
 /*
 Station ID will be in range from 100-199
@@ -413,6 +414,22 @@ Function to set stock of a particular item
 */
 void setItemCount(struct Item* item, int count) {
   item->currentCount = count;
+}
+
+
+void writeToLog(string str) {
+
+  string filename = "out-log.txt";
+  //string msg = to_string(readTime()) + ": " + str + "\n";
+
+//  string msg = to_string(readTime()) + ": " + "Initiator - " + str + "\n";
+
+  string msg = str + "\n";
+  ofstream file;
+  file.open(filename, std::ios_base::app);
+  file << msg;
+  file.close();
+
 }
 
 

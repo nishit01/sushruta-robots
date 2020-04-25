@@ -143,8 +143,24 @@ void createServer() {
     }
 
     int msg;
-    recv_msg = read(new_socket, &msg, sizeof(msg));
-    cout << "received message " << msg << "\n";
+    recv_msg = read(new_socket, &msg, sizeof(msg));	// msg-1
+//    cout << "received message " << msg << "\n";
+
+    if (msg == ORDER_DELIVERY) {
+
+    	int orderId;
+    	int robotId;
+
+    	read(new_socket, &orderId, sizeof(int));	// msg-2
+    	read(new_socket, &robotId, sizeof(int));	// msg-3
+
+    	cout << "Order: " << orderId << " is delivered by Robot " << robotId<< "\n";
+    	string str = "Order: " + to_string(orderId) + " is delivered by Robot " + to_string(robotId) + "\n";
+     	writeToLog(str);
+
+    }
+
+
 
 
   }

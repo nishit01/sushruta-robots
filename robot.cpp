@@ -195,7 +195,7 @@ void createServer() {
     	  int orderId;
     	  read(new_socket, &orderId, sizeof(int));
 
-    	  cout << "Order Delivered\n";
+//    	  cout << "Order Delivered\n";
 
     	  updateGrid(FREE_CELL, routes[orderId]);
 
@@ -237,6 +237,8 @@ void moveRobotToExitStand(int station_neighbor_x, int station_neighbor_y) {
 			break;
 		}
 	}
+
+//	myDetails.state = PASSIVE;
 }
 
 
@@ -278,6 +280,14 @@ void moveRobot(int orderId) {
 	vector<int> msgs;
 	msgs.push_back(ORDER_RELEASE);	 // msg-1
 	msgs.push_back(orderId); // msg-2
+
+
+	// inform station about the order delivery
+	vector<int> msg1;
+	msg1.push_back(ORDER_DELIVERY);	// msg-1
+	msg1.push_back(orderId);	// msg-2
+	msg1.push_back(myDetails.robotId);	// msg-3
+	sendMsgToStation(stations[orders[orderId].stationId].networkInfo.portNo, msg1);
 
 	broadcastMsgToRobot(msgs);
 
