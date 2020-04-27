@@ -365,7 +365,8 @@ void placeOrder() {
 		int tmpId;
 
 		while(1) {
-			tmpId = generateOrderId();
+//			tmpId = generateOrderId();
+			tmpId = order_count;
 			if (orders.find(tmpId) == orders.end())
 				break;
 		}
@@ -387,7 +388,7 @@ void placeOrder() {
 
 
 
-		printMsg("Order Successfully Placed");
+		printMsg("Order-" + to_string(order.orderId) + " Successfully Placed");
 
 		// check item availability by requesting all stations
 

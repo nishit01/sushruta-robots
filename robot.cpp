@@ -27,9 +27,24 @@ Station* stations;
 Item* items;
 unordered_map<int, Order> orders;
 unordered_map<int, RouteInfo> routes;
-unordered_map<int, int> order_reply_count;
+unordered_map<int, vector<int>> order_reply_count;
+
+vector<int> pending_order;
+list<int> noroute_order;
+
+int consensus_value_propose;
+int consensus_value_agreed;
+int consensus_value_disagreed_count;
+vector<int> consensus_value_received;
+
+std::atomic<bool> nextOrder (true);
+
 int grid_size;
 int** grid;
+std::mutex mtx;
+std::mutex mtx1;
+std::mutex mtx2;
+std::mutex mtx3;
 
 // Function Prototype
 void createServer();
@@ -38,11 +53,16 @@ void getPath(Order, vector<pair<int, int>>&, vector<pair<int, int>>&);
 void computeRoute(Order);
 void moveRobot(int);
 void moveRobotToExitStand(int, int);
+void proposeConsensusValue();
+void processConsensusValue();
+void processOrder();
 
 /*
 Function to create server thread
 */
 void createServer() {
+
+	cout << "-------------------------------begin createServer()----------------------------------------\n";
 
     int portNo;
 
@@ -116,35 +136,65 @@ void createServer() {
     	  order_count = order_count + 1;
 
     	  printMsg("robot.cpp:createServer() ... order request received from station " + to_string(order.stationId) + " for item " + to_string(order.itemId));
-    	  computeRoute(order);
 
+    	  mtx.lock();
+    	  {
+    		  pending_order.push_back(order.orderId);
+    		  push_heap(pending_order.begin(), pending_order.end(), greater<int>());
+    	  }
+    	  mtx.unlock();
+//    	  proposeConsensusValue();
+    	  // computeRoute(order);
+
+//    	  thread th2(processOrder);
+//    	  th2.detach();
+//    	  cout << pending_order.front() << "\n";
+//    	  mtx.lock();
+//    	  {
+//    		  cout << "total orders " << pending_order.size() << "\n";
+//    	  }
+//    	  mtx.unlock();
       }
 
       else if (msg == ORDER_REPLY) {
 
     	  int reply_robot_state;
     	  int reply_order_id;
+    	  int isRouteExist;
+    	  int reply_robot_id;
+    	  int reply_distance1;
+    	  int reply_distance2;
+    	  int reply_distance;
+    	  vector<pair<int, int>> reply_path1;
+    	  vector<pair<int, int>> reply_path2;
+
+    	  int reply_path_x;
+    	  int reply_path_y;
 
     	  recv_msg = read(new_socket, &reply_order_id, sizeof(int));	// msg-2
     	  recv_msg = read(new_socket, &reply_robot_state, sizeof(int));	// msg-3
-    	  order_reply_count[reply_order_id]++;
+    	  recv_msg = read(new_socket, &isRouteExist, sizeof(int)); // msg-3.1
+//    	  order_reply_count[reply_order_id]++;
 
-    	  if (reply_robot_state == PASSIVE) {
+    	  order_reply_count[reply_order_id].push_back(isRouteExist);
+
+    	  if (reply_robot_state == PASSIVE && isRouteExist == ROUTE) {
 
     		  // msg-4
-    		  int reply_robot_id;
+//    		  int reply_robot_id;
     		  recv_msg = read(new_socket, &reply_robot_id, sizeof(int));
 
     		  // msg-5
-    		  int reply_distance1;
+//    		  int reply_distance1;
     		  read(new_socket, &reply_distance1, sizeof(int));
 
     		  // msg-6{...}
-    		  vector<pair<int, int>> reply_path1;
+//    		  vector<pair<int, int>> reply_path1;
     		  int i;
-    		  int reply_path_x;
-    		  int reply_path_y;
-    		  for(i=0;i<=reply_distance1;i++) {
+//    		  int reply_path_x;
+//    		  int reply_path_y;
+
+    		  for(i=0;i<=reply_distance1;i++) {	// as distance = path.size() - 1, hence loop runs till <= distance1
     			  read(new_socket, &reply_path_x, sizeof(int));
     			  read(new_socket, &reply_path_y, sizeof(int));
     			  reply_path1.push_back({reply_path_x, reply_path_y});
@@ -152,10 +202,10 @@ void createServer() {
 
 
     		  // msg-7
-    		  int reply_distance2;
+//    		  int reply_distance2;
     		  read(new_socket, &reply_distance2, sizeof(int));
 
-    		  vector<pair<int, int>> reply_path2;
+//    		  vector<pair<int, int>> reply_path2;
 
     		  // msg-8{...}
     		  for(i=0;i<=reply_distance2;i++) {
@@ -164,10 +214,12 @@ void createServer() {
     			  reply_path2.push_back({reply_path_x, reply_path_y});
     		  }
 
-    		  int reply_distance = reply_distance1 + reply_distance2;
+//    		  int reply_distance = reply_distance1 + reply_distance2;
+    		  reply_distance = reply_distance1 + reply_distance2;
 
-    		  if (routes[reply_order_id].distance > reply_distance ||
-    				  (routes[reply_order_id].distance == reply_distance && routes[reply_order_id].robotId > reply_robot_id)) {
+    		  if (isRouteExist == ROUTE &&
+    				  (order_reply_count[reply_order_id].size() == 1  || routes[reply_order_id].distance > reply_distance ||
+    				  (routes[reply_order_id].distance == reply_distance && routes[reply_order_id].robotId > reply_robot_id))) {
     			  routes[reply_order_id].distance = reply_distance;
     			  routes[reply_order_id].robotId = reply_robot_id;
     			  routes[reply_order_id].path1 = reply_path1;
@@ -177,52 +229,219 @@ void createServer() {
 
     	  }
 
-    	  if (order_reply_count[reply_order_id] == robot_count) {
-    		  cout << "Leader Elected " << routes[reply_order_id].robotId << "\n";
-    		  cout << "Leader Distance Found " << routes[reply_order_id].distance << "\n";
-    		  cout << "Path from Robot to Item " << routes[reply_order_id].path1.size() - 1<< "\n";
-    		  cout << "Path from Item to Station " << routes[reply_order_id].path2.size() - 1<< "\n";
-    		  updateGrid(BLOCK_CELL, routes[reply_order_id]);
-    		  if (routes[reply_order_id].robotId == myDetails.robotId) {
-    			  cout << "I am the Leader ... \n";
-    			  myDetails.state = ACTIVE;
-    			  thread th1(moveRobot, reply_order_id);
-    			  th1.detach();
+    	  if (order_reply_count[reply_order_id].size() == robot_count) {
+
+    		  // check if route exist from any of the robot
+    		  int i;
+
+    		  for(i=0;i<order_reply_count[reply_order_id].size();i++) {
+    			  if (order_reply_count[reply_order_id][i] == ROUTE)
+    				  break;	// atleast one route exists
+    		  }
+    		  if (i == order_reply_count[reply_order_id].size()) {
+    			  // no route exist
+    			  mtx1.lock();
+    			  {
+    				  cout << "no route exits for order " << reply_order_id << "\n";
+    				  noroute_order.push_back(reply_order_id);
+    				  cout << "added order to noroute_order list " << reply_order_id << "\n";
+    			  }
+    			  mtx1.unlock();
+    			  order_reply_count[reply_order_id].clear();
+
+    		  }
+    		  else {
+
+
+    			  // freeze the grid cell
+    			  updateGrid(BLOCK_CELL, routes[reply_order_id], routes[reply_order_id].robotId == myDetails.robotId);
+    			  cout << "grid is freezed ... can proceed to work for next order\n";
+
+    			  cout << "Leader Elected " << routes[reply_order_id].robotId << "\n";
+				  cout << "Leader Distance Found " << routes[reply_order_id].distance << "\n";
+				  cout << "Path from Robot to Item " << routes[reply_order_id].path1.size() - 1<< "\n";
+				  cout << "Path from Item to Station " << routes[reply_order_id].path2.size() - 1<< "\n";
+
+
+
+				  if (routes[reply_order_id].robotId == myDetails.robotId) {
+	    			  cout << "I am the Leader ... \n";
+	    			  mtx2.lock();
+	    			  {
+	    				  myDetails.state = ACTIVE;
+	    				  cout << "status changed to active\n";
+	    			  }
+	    			  mtx2.unlock();
+//	    			  myDetails.state = ACTIVE;
+
+	    			  mtx.lock();
+					  {
+
+	    				  cout << "popping consensus value from leader \n";
+
+	    				  pop_heap(pending_order.begin(), pending_order.end(), greater<int>());
+	    				  pending_order.pop_back();
+
+	    				  cout << "total pending order size " << pending_order.size() << "\n";
+
+					  }
+					  mtx.unlock();
+
+					  nextOrder = true;	// set nextOrder for proposing next consensus value
+					  cout << "set nextOrder to true to propose new consensus value\n";
+
+					  thread th1(moveRobot, reply_order_id);
+	    			  th1.detach();
+				  } else {
+
+					  mtx.lock();
+					  {
+						  cout << "popping consensus value from non-leaders \n";
+						  pop_heap(pending_order.begin(), pending_order.end(), greater<int>());
+						  pending_order.pop_back();
+						  cout << "total pending order size " << pending_order.size() << "\n";
+					  }
+					  mtx.unlock();
+
+					  nextOrder = true;
+
+				  }
     		  }
     	  }
-
       } else if (msg == ORDER_RELEASE) {
+    	  // by this time, leader robot will have delivered item, changed state = passive, moved to one of exit stand
+
     	  int orderId;
     	  read(new_socket, &orderId, sizeof(int));
 
 //    	  cout << "Order Delivered\n";
 
-    	  updateGrid(FREE_CELL, routes[orderId]);
+    	  updateGrid(FREE_CELL, routes[orderId], routes[orderId].robotId == myDetails.robotId);
 
-    	  if (routes[orderId].robotId == myDetails.robotId) {
-
-    		  vector<pair<int, int>> path = routes[orderId].path2;
-    		  pair<int, int> cell = path[path.size() - 1];
-
-    		  moveRobotToExitStand(cell.first, cell.second);
-
-//    		  myDetails.currentCoords.x = cell.first;
-//    		  myDetails.currentCoords.y = cell.second;
-
-    		  myDetails.state = PASSIVE;
-
+    	  mtx1.lock();
+    	  {
+    		  if (noroute_order.size() > 0) {
+    			  mtx.lock();
+    			  {
+    	    		  pending_order.push_back(noroute_order.front());
+    	    		  push_heap(pending_order.begin(), pending_order.end(), greater<int>());
+    			  }
+    			  mtx.unlock();
+    			  noroute_order.pop_front();
+    		  }
     	  }
+    	  mtx1.unlock();
+
+//    	  if (routes[orderId].robotId == myDetails.robotId) {
+//
+//    		  vector<pair<int, int>> path = routes[orderId].path2;
+//    		  pair<int, int> cell = path[path.size() - 1];
+//
+//    		  moveRobotToExitStand(cell.first, cell.second);
+//
+////    		  myDetails.currentCoords.x = cell.first;
+////    		  myDetails.currentCoords.y = cell.second;
+//
+//    		  myDetails.state = PASSIVE;
+//
+//    	  }
 
     	  printRobotInfo(&myDetails, 1);
 
-      }
+//    	  bool is_order_pending = false;
+//    	  mtx.lock();
+//    	  {
+//    		  if (pending_order.size() > 0) {
+//    			  is_order_pending = true;
+//    		  }
+//    	  }
+//    	  mtx.unlock();
+//    	  if (is_order_pending)
+//    		  proposeConsensusValue();
 
+      } else if (msg == CONSENSUS_VALUE_PROPOSE) {
+    	  int tmp;
+    	  read(new_socket,&tmp, sizeof(int));
+    	  bool process_consensus_possible = false;
+    	  mtx3.lock();
+    	  {
+        	  consensus_value_received.push_back(tmp);
+        	  if (consensus_value_received.size() == robot_count)
+        		  process_consensus_possible = true;
+    	  }
+    	  mtx3.unlock();
+//    	  consensus_value_received.push_back(tmp);
+
+//    	  if (consensus_value_received.size() == robot_count) {
+//    		  processConsensusValue();
+//    	  }
+
+    	  if (process_consensus_possible)
+    		  processConsensusValue();
+
+      } else if (msg == CONSENSUS_VALUE_DISAGREED) {
+    	  cout << "Consensus Value Disagreed, proposing new value \n";
+    	  proposeConsensusValue();
+      }
       close(new_socket);
     }
+
+	cout << "-------------------------------end createServer()----------------------------------------\n";
+
+}
+
+/*
+ * Function to process order
+ * nextOrder variable - boolean variable to go for consensus
+ * isOrderExist - boolean variable to check whether any order is pending
+ */
+void processOrder() {
+
+//	cout << "in processOrder()\n";
+	cout << "-------------------------------begin processOrder()----------------------------------------\n";
+
+	bool isOrderExist;
+
+	while(1) {
+
+		while(1) {
+			if (nextOrder) {	// boolean variable to look into next order i.e. go for next min. consensus value
+//				cout << "next order is available\n";
+				break;
+			}
+			else
+				sleep(2);
+		}
+
+		isOrderExist = false;		// check whether pending_order has any orders
+
+		mtx.lock();
+		{
+			if (pending_order.size() > 0) {
+				isOrderExist = true;
+			}
+		}
+		mtx.unlock();
+
+		if (isOrderExist) {
+			nextOrder = false;
+			proposeConsensusValue();	// propose consensus value to agree on the which order to process
+		} else {
+			sleep(2);
+		}
+	}
+
+	cout << "-------------------------------end processOrder()---------------------------------------\n";
+
+
 }
 
 
+
 void moveRobotToExitStand(int station_neighbor_x, int station_neighbor_y) {
+
+//	cout << "in moveRobotToExitStand()\n";
+	cout << "-------------------------------begin moveRobotToExitStand()----------------------------------------\n";
 
 	vector<pair<int, int>> directions = { {-1, 0}, {1,0}, {0,-1}, {0,1} }; // up, down. left, right
 	Coords exit_coords;
@@ -238,12 +457,19 @@ void moveRobotToExitStand(int station_neighbor_x, int station_neighbor_y) {
 		}
 	}
 
+	cout << "-------------------------------end moveRobotToExitStand()----------------------------------------\n";
+
+
 //	myDetails.state = PASSIVE;
 }
 
 
 
 void moveRobot(int orderId) {
+
+//	cout << "in moveRobot()\n";
+	cout << "-------------------------------begin moveRobot()----------------------------------------\n";
+
 
 	int i;
 	RouteInfo route = routes[orderId];
@@ -274,13 +500,23 @@ void moveRobot(int orderId) {
 
 	cout << "Order Delivered\n";
 
+
+	pair<int, int> cell = path2[path2.size() - 1];
+	moveRobotToExitStand(cell.first, cell.second);
+	mtx2.lock();
+	{
+		myDetails.state = PASSIVE;
+		cout << "status changed to passive\n";
+	}
+	mtx2.unlock();
+
 	int msg;
 	msg = ORDER_RELEASE;
 
 	vector<int> msgs;
 	msgs.push_back(ORDER_RELEASE);	 // msg-1
 	msgs.push_back(orderId); // msg-2
-
+	broadcastMsgToRobot(msgs);
 
 	// inform station about the order delivery
 	vector<int> msg1;
@@ -289,7 +525,8 @@ void moveRobot(int orderId) {
 	msg1.push_back(myDetails.robotId);	// msg-3
 	sendMsgToStation(stations[orders[orderId].stationId].networkInfo.portNo, msg1);
 
-	broadcastMsgToRobot(msgs);
+//	broadcastMsgToRobot(msgs);
+	cout << "-------------------------------end moveRobot()----------------------------------------\n";
 
 }
 
@@ -297,7 +534,27 @@ void moveRobot(int orderId) {
 
 void computeRoute(Order order) {
 
-	if (myDetails.state == ACTIVE) {
+//	cout << "in computeRoute()\n";
+	cout << "-------------------------------begin computeRoute()----------------------------------------\n";
+
+
+	int state_status;
+	cout << "step 1\n";
+	mtx2.lock();
+	{
+		if (myDetails.state == ACTIVE) {
+			state_status = ACTIVE;
+			cout << "status is active\n";
+		}
+		else {
+			state_status = PASSIVE;
+			cout << "status is passive\n";
+		}
+	}
+	mtx2.unlock();
+	cout << "strp 2\n";
+
+	if (state_status == ACTIVE) {
 
 		int msg;
 		msg = ACTIVE; // this robot is currently active, can't participate
@@ -309,8 +566,11 @@ void computeRoute(Order order) {
 		msgs.push_back(ORDER_REPLY); // msg-1
 		msgs.push_back(order.orderId); // msg-2
 		msgs.push_back(ACTIVE); // msg-3
+		msgs.push_back(NO_ROUTE); // msg-3.1
 
+		cout << "step active-3\n";
 		broadcastMsgToRobot(msgs);
+		cout << "step active-4\n";
 
 	}
 	else {
@@ -335,31 +595,42 @@ void computeRoute(Order order) {
 
 		int distance = distance1 + distance2;
 
-		routes[order.orderId].distance = distance;
-		routes[order.orderId].robotId = myDetails.robotId;
-		routes[order.orderId].path1 = path1;
-		routes[order.orderId].path2 = path2;
+//		routes[order.orderId].distance = distance;
+//		routes[order.orderId].robotId = myDetails.robotId;
+//		routes[order.orderId].path1 = path1;
+//		routes[order.orderId].path2 = path2;
 
-
-		msgs.push_back(myDetails.robotId);	// msg-4
-
-		msgs.push_back(distance1);	// msg-5 distance from robot to item
-
-		for(auto d: path1) {	// msg-6{...} route from robot to item
-			msgs.push_back(d.first);
-			msgs.push_back(d.second);
+		if (path1.size() == 0 || path1.size() == 0) {
+			msgs.push_back(NO_ROUTE);	// msg-3.1
+//			broadcastMsgToRobot(msgs);
 		}
 
-		msgs.push_back(distance2); // msg-7 distance from item to station
+		else {
 
-		for(auto d: path2) { // msg-8{...} route from item to station
-			msgs.push_back(d.first);
-			msgs.push_back(d.second);
+			msgs.push_back(ROUTE);	// msg-3.1
+
+			msgs.push_back(myDetails.robotId);	// msg-4
+
+			msgs.push_back(distance1);	// msg-5 distance from robot to item
+
+			for(auto d: path1) {	// msg-6{...} route from robot to item
+				msgs.push_back(d.first);
+				msgs.push_back(d.second);
+			}
+
+			msgs.push_back(distance2); // msg-7 distance from item to station
+
+			for(auto d: path2) { // msg-8{...} route from item to station
+				msgs.push_back(d.first);
+				msgs.push_back(d.second);
+			}
 		}
-
+		cout << "step 3\n";
 		broadcastMsgToRobot(msgs);
-
+		cout << "step 4\n";
 	}
+
+	cout << "-------------------------------end computeRoute()----------------------------------------\n";
 
 }
 
@@ -373,12 +644,16 @@ void computeRoute(Order order) {
 
 void getPath(Order order, vector<pair<int, int>>& path1, vector<pair<int, int>>& path2) {
 
+//	cout << "in getPath()\n";
+	cout << "-------------------------------begin getPath()----------------------------------------\n";
+
+
 	// from robot to item
 	pair<int, int> src1 = {myDetails.currentCoords.x, myDetails.currentCoords.y};
 	pair<int, int> dst1 = {items[order.itemId].coords.x, items[order.itemId].coords.y};
 
-	cout << src1.first << ", " << src1.second << "\n";
-	cout << dst1.first << ", " << dst1.second << "\n";
+	cout << "Robot Location: " << src1.first << ", " << src1.second << "\n";
+	cout << "Item Location: " << dst1.first << ", " << dst1.second << "\n";
 
 //	vector<pair<int, int>> path1 = shortest(src1, dst1);
 	path1 = shortest(src1, dst1);
@@ -398,18 +673,18 @@ void getPath(Order order, vector<pair<int, int>>& path1, vector<pair<int, int>>&
 	pair<int, int> src2 = { items[order.itemId].coords.x, items[order.itemId].coords.y };
 	pair<int, int> dst2 = { stations[order.stationId].coords.x, stations[order.stationId].coords.y };
 
-	cout << "Source 2: " << src2.first << ", " << src2.second << "\n";
-	cout << "Destination 2: " << dst2.first << ", " << dst2.second << "\n";
+	cout << "Item Location: " << src2.first << ", " << src2.second << "\n";
+	cout << "Station Location: " << dst2.first << ", " << dst2.second << "\n";
 
 	vector<pair<int, int>> directions = {{0, 1}, {0, -1}, {1, 0}, { -1, 0}};
 
 	for (auto d : directions) {
 		pair<int, int> new_dest = {dst2.first + d.first, dst2.second + d.second};
 		if (isvalid(new_dest)) {
-			cout << "new dest " << new_dest.first << ", " << new_dest.second << "\n";
+			cout << "Station Available Location: " << new_dest.first << ", " << new_dest.second << "\n";
 			vector<pair<int, int>> tmp = shortest(src2, new_dest);
 			// cout << "Distance between src and dest is " << path.size() << endl;
-			if (tmp.size() < min_length) {
+			if (tmp.size() > 0 && tmp.size() < min_length) {
 				path2 = tmp;
 				min_length = tmp.size();
 			}
@@ -426,6 +701,9 @@ void getPath(Order order, vector<pair<int, int>>& path1, vector<pair<int, int>>&
 
 	// set grid position as it is
 	//	cout << "Path Shown\n";
+
+	cout << "-------------------------------end getPath()----------------------------------------\n";
+
 }
 
 
@@ -471,6 +749,10 @@ void getPath(Order order, vector<pair<int, int>>& path1, vector<pair<int, int>>&
 
 void connectToInitiator() {
 
+//	cout << "in connectToInitiator()\n";
+	cout << "-------------------------------begin connectToInitiator()----------------------------------------\n";
+
+
   int sock;
   struct sockaddr_in serv_addr;
   int initiatorPortNo = 9000;
@@ -513,6 +795,29 @@ void connectToInitiator() {
   recv_msg = read(sock, &myDetails.robotId, sizeof(int));
   // printRobotInfo(&myDetails, 1);
 
+//  if (myDetails.robotId == 0) {
+//  		cout << "=============DKJASFLAFEIBLFIBEILBFLE===========================================\n";
+//  		mtx.lock();
+//  		{
+//  			pending_order.push_back(-1);
+//  			push_heap(pending_order.begin(), pending_order.end(), greater<int>());
+//  		}
+//  		mtx.unlock();
+//  	}
+//
+//  if (myDetails.robotId == 1) {
+//	  mtx.lock();
+//	  {
+//		  pending_order.push_back(4);
+//		  push_heap(pending_order.begin(), pending_order.end(), greater<int>());
+//
+//		  pending_order.push_back(2);
+//		  push_heap(pending_order.begin(), pending_order.end(), greater<int>());
+//	  }
+//	  mtx.unlock();
+//  }
+
+
   printMsg("robot.cpp:connectToInitiator() -> received robot id " + to_string(myDetails.robotId));
 
   // send myDetails i.e. struct Robot
@@ -553,6 +858,8 @@ void connectToInitiator() {
 
   close(sock);
 
+	cout << "-------------------------------end connectToInitiator()----------------------------------------\n";
+
 }
 
 
@@ -583,18 +890,161 @@ Function to get details (pre-defined) about the picking station
 // }
 
 
+
+
+void proposeConsensusValue() {
+
+
+//	cout << "in proposeConsensusValue()\n";
+	cout << "-------------------------------begin proposeConsensusValue()----------------------------------------\n";
+
+	int min_value;
+
+	vector<int> msgs;
+//	bool isSomeOrderExist = false;
+
+//	mtx.lock();
+//	{
+//		if (pending_order.size() > 0) {
+//			min_value = pending_order.front();
+//
+////			pop_heap(pending_order.begin(), pending_order.end(), greater<int>());
+////			pending_order.pop_back();
+//
+//			isSomeOrderExist = true;
+//			cout << "Consensus Value Found " << min_value << "\n";
+//		}
+//	}
+//	mtx.unlock();
+
+//	if (isSomeOrderExist) {
+//		consensus_value_propose = min_value;
+//
+//		msgs.push_back(CONSENSUS_VALUE_PROPOSE);
+//		msgs.push_back(consensus_value_propose);
+//
+//		broadcastMsgToRobot(msgs);
+//
+//	} else {
+//
+//		sleep(2);
+//		proposeConsensusValue();
+//
+//	}
+
+	mtx.lock();
+	{
+//		min_value = pending_order.front();
+		consensus_value_propose = pending_order.front();
+	}
+	mtx.unlock();
+
+//	consensus_value_propose = min_value;
+	cout << "consensus value proposed " << consensus_value_propose << "\n";
+
+	msgs.push_back(CONSENSUS_VALUE_PROPOSE);
+	msgs.push_back(consensus_value_propose);
+
+	broadcastMsgToRobot(msgs);
+	cout << "-------------------------------end proposeConsensusValue()----------------------------------------\n";
+
+}
+
+
+void processConsensusValue() {
+
+//	cout << "in processConsensusValue()\n";
+
+	cout << "-------------------------------begin processConsensusValue()----------------------------------------\n";
+
+	int i;
+
+	int n;
+	mtx3.lock();
+	{
+		n = consensus_value_received.size();
+	}
+	mtx3.unlock();
+
+	vector<int> tmp_values;
+	mtx3.lock();
+	{
+		for(i=0;i<n;i++)
+			tmp_values.push_back(consensus_value_received[i]);
+	}
+	mtx3.unlock();
+
+	for(i=0;i<n;i++) {
+		if (tmp_values[i] != consensus_value_propose) {
+//			consensus_value_received.clear();
+//			mtx.lock();
+//			{
+//				pending_order.push_back(consensus_value_propose);
+//				push_heap(pending_order.begin(), pending_order.end(), greater<int>());
+//			}
+//			mtx.unlock();
+//			sleep(2);
+			break;
+		}
+	}
+
+	mtx3.lock();
+	{
+		consensus_value_received.clear();
+	}
+	mtx3.unlock();
+//	consensus_value_received.clear();
+	tmp_values.clear();
+
+	if (i == n) {
+//		mtx.lock();
+//		{
+//			cout << "robot id " << myDetails.robotId << "\n";
+//			cout << "routes robot id " << routes[consensus_value_propose].robotId << "\n";
+//			if (myDetails.robotId != routes[consensus_value_propose].robotId) {
+//				cout << "popping order " << consensus_value_propose << " \n";
+//				pop_heap(pending_order.begin(), pending_order.end(), greater<int>());
+//				pending_order.pop_back();
+//			}
+//		}
+//		mtx.unlock();
+		cout << "Robot will work on order Id " << consensus_value_propose << "\n";
+		computeRoute(orders[consensus_value_propose]);
+	}
+	else {
+		vector<int> msgs;
+		msgs.push_back(CONSENSUS_VALUE_DISAGREED); // all robots have cleared their consensus_value_received vector, now propose again the new value
+		broadcastMsgToRobot(msgs);
+	}
+
+	cout << "-------------------------------end processConsensusValue()----------------------------------------\n";
+
+}
+
+
+
 int main() {
 
   // get robot id provided from station
 
   // myDetails.state = PASSIVE;
 
+//	cout << "in main()\n";
+	cout << "-------------------------------begin main()----------------------------------------\n";
+
 	order_count = 0;
+	make_heap(pending_order.begin(), pending_order.end(), greater<int>());
+
+
+	thread th2(processOrder);
+	th2.detach();
+
+//	sleep(2);
 
 	thread th1(createServer);
 	th1.join();
 
+	cout << "-------------------------------end main()----------------------------------------\n";
 
-
-  return 0;
+	return 0;
 }

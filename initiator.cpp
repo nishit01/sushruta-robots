@@ -77,6 +77,7 @@ void placeRobots() {
   for(i=0;i<robot_count;i++) {
     robots[i].robotId = i;
     robots[i].state = PASSIVE;
+//    robots[i].state = ACTIVE;
     cout << "enter coords for robot-" << robots[i].robotId << ": ";
     cin >> coord.x >> coord.y;
     robots[i].currentCoords = coord;

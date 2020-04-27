@@ -32,6 +32,11 @@ using namespace std;
 #define ORDER_RELEASE 15
 #define ORDER 16
 #define ORDER_DELIVERY 17
+#define CONSENSUS_VALUE_PROPOSE 18
+#define CONSENSUS_VALUE_AGREED 19
+#define CONSENSUS_VALUE_DISAGREED 20
+#define ROUTE 21
+#define NO_ROUTE 22
 
 /*
 Station ID will be in range from 100-199
@@ -359,6 +364,7 @@ void printGrid() {
     }
     cout << "\n";
   }
+  cout << "\n";
 }
 
 
@@ -628,26 +634,31 @@ vector<pair<int, int>> shortest(pair<int, int> src, pair<int, int> dest) {
 	pred = getPredecessor(src, dest, pred);
 	vector<pair<int, int>> path;
 	auto crawl = dest;
-	path.push_back(crawl);
+//	path.push_back(crawl);
 	while (pred[(crawl.first * grid_size + crawl.second)] != make_pair(-1, -1)) {
 		path.push_back(pred[(crawl.first * grid_size + crawl.second)]);
 		crawl = pred[(crawl.first * grid_size + crawl.second)];
 	}
-	reverse(path.begin(), path.end());
+	if (path.size() > 0) {
+		reverse(path.begin(), path.end());
+		path.push_back(dest);
+	}
 	return path;
 }
 
 
 
 
-void updateGrid(int msg, RouteInfo route) {
+void updateGrid(int msg, RouteInfo route, bool isLeader) {
 
 	vector<pair<int, int>> path1;
 	vector<pair<int, int>> path2;
 
 	path1 = route.path1;
 	path2 = route.path2;
+
 	pair<int, int> cell;
+
 	int i;
 
 	if (msg == BLOCK_CELL) {
@@ -659,6 +670,15 @@ void updateGrid(int msg, RouteInfo route) {
 			cell = path2[i];
 			grid[cell.first][cell.second] = BLOCK_CELL;
 		}
+
+		if (!isLeader) {
+			cell = path1[path1.size() - 1];
+			grid[cell.first][cell.second] = BLOCK_CELL;
+
+			cell = path2[0];
+			grid[cell.first][cell.second] = BLOCK_CELL;
+		}
+
 	} else {
 		for(i=0;i<path1.size()-1;i++) {
 			cell = path1[i];
@@ -672,7 +692,18 @@ void updateGrid(int msg, RouteInfo route) {
 		}
 //		cell = path2[i];
 //		grid[cell.first][cell.second] = ROBOT;
+
+		if (!isLeader) {
+			cell = path1[path1.size() - 1];
+			grid[cell.first][cell.second] = ITEM;
+		}
+
+		if (!isLeader) {
+			cell = path2[0];
+			grid[cell.first][cell.second] = ITEM;
+		}
 	}
 
 	printGrid();
+
 }
