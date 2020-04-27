@@ -268,6 +268,7 @@ void createServer() {
 
     			  // allow consensus to select next available order
     			  nextOrder = true;
+    			  cout << "next order put to true\n";
     			  order_reply_count[reply_order_id].clear();
 
     		  }
@@ -310,6 +311,7 @@ void createServer() {
 					  mtx.unlock();
 
 					  nextOrder = true;	// set nextOrder for proposing next consensus value
+					  cout << "next order put to true\n";
 					  cout << "set nextOrder to true to propose new consensus value\n";
 
 					  thread th1(moveRobot, reply_order_id);
@@ -326,7 +328,7 @@ void createServer() {
 					  mtx.unlock();
 
 					  nextOrder = true;
-
+					  cout << "next order put to true\n";
 				  }
     		  }
     	  }
@@ -434,13 +436,18 @@ void processOrder() {
 
 	while(1) {
 
+
+
 		while(1) {
 			if (nextOrder) {	// boolean variable to look into next order i.e. go for next min. consensus value
-//				cout << "next order is available\n";
+				cout << "ready to propose next consensus value\n";
 				break;
 			}
-			else
+			else {
+				cout << "sleep for 2 seconds before to knock\n";
 				sleep(2);
+
+			}
 		}
 
 		isOrderExist = false;		// check whether pending_order has any orders
@@ -456,6 +463,7 @@ void processOrder() {
 
 		if (isOrderExist) {
 			nextOrder = false;
+			cout << "next order put to false\n";
 			proposeConsensusValue();	// propose consensus value to agree on the which order to process
 		} else {
 			sleep(2);

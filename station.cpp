@@ -371,6 +371,9 @@ void placeOrder() {
 				break;
 		}
 
+		string str = "New Order with item-id " + to_string(item.itemId) + " placed\n";
+		writeToLog(str);
+
 		order.orderId = tmpId;
 		order.stationId = myDetails.stationId;
 		order.itemId = item.itemId;
