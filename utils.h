@@ -610,7 +610,7 @@ vector<pair<int, int>> getPredecessor(pair<int, int> src, pair<int, int> dest, v
 		};
 		for (auto next_point : list_next) {
 			// cout << "Point to be seen: " << next_point.first << " " << next_point.second << endl;
-			if ((isvalid(next_point) || next_point == src || next_point == dest) &&
+			if ((isvalid(next_point) || next_point == src || (next_point == dest && grid[next_point.first][next_point.second] != 7)) &&
 			        find(seen_points.begin(), seen_points.end(), next_point) == seen_points.end()) {
 				// cout << "Pushing it in!" << endl;
 				q.push(next_point);
@@ -662,11 +662,15 @@ void updateGrid(int msg, RouteInfo route, bool isLeader) {
 	int i;
 
 	if (msg == BLOCK_CELL) {
+		cout << "before size of path1 " << path1.size() << "\n";
 		for(i=1;i<path1.size()-1;i++) {
+			cout << "size of path1 " << path1.size() << "\n";
 			cell = path1[i];
 			grid[cell.first][cell.second] = BLOCK_CELL;
 		}
+		cout << "before size of path2 " << path2.size() << "\n";
 		for(i=1;i<path2.size();i++) {
+			cout << "size of path2 " << path2.size() << "\n";
 			cell = path2[i];
 			grid[cell.first][cell.second] = BLOCK_CELL;
 		}
@@ -680,13 +684,17 @@ void updateGrid(int msg, RouteInfo route, bool isLeader) {
 		}
 
 	} else {
+		cout << "before size of path1 " << path1.size() << "\n";
 		for(i=0;i<path1.size()-1;i++) {
+			cout << "size of path1 " << path1.size() << "\n";
 			cell = path1[i];
 			if (grid[cell.first][cell.second] == EXIT_STAND)
 				continue;
 			grid[cell.first][cell.second] = FREE_CELL;
 		}
+		cout << "before size of path2 " << path2.size() << "\n";
 		for(i=1;i<path2.size();i++) {
+			cout << "size of path2 " << path2.size() << "\n";
 			cell = path2[i];
 			grid[cell.first][cell.second] = FREE_CELL;
 		}
@@ -694,11 +702,13 @@ void updateGrid(int msg, RouteInfo route, bool isLeader) {
 //		grid[cell.first][cell.second] = ROBOT;
 
 		if (!isLeader) {
+			cout << "size of path1 " << path1.size() << "\n";
 			cell = path1[path1.size() - 1];
 			grid[cell.first][cell.second] = ITEM;
 		}
 
 		if (!isLeader) {
+			cout << "size of path2 " << path2.size() << "\n";
 			cell = path2[0];
 			grid[cell.first][cell.second] = ITEM;
 		}

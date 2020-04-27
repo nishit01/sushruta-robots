@@ -133,6 +133,7 @@ void createServer() {
     	  recv_msg = read(new_socket, &order.itemId, sizeof(Order));
 
     	  orders[order.orderId] = order;
+    	  routes[order.orderId].distance = INT_MAX;
     	  order_count = order_count + 1;
 
     	  printMsg("robot.cpp:createServer() ... order request received from station " + to_string(order.stationId) + " for item " + to_string(order.itemId));
@@ -217,9 +218,16 @@ void createServer() {
 //    		  int reply_distance = reply_distance1 + reply_distance2;
     		  reply_distance = reply_distance1 + reply_distance2;
 
+
+    		  cout << "existing route distance " << routes[reply_order_id].distance << "\n";
+    		  cout << "checking replied route " << reply_distance << "\n";
+    		  cout << "existing robot ID " << myDetails.robotId << "\n";
+    		  cout << "replied robot ID " << reply_robot_id << "\n";
+
+
     		  if (isRouteExist == ROUTE &&
     				  (order_reply_count[reply_order_id].size() == 1  || routes[reply_order_id].distance > reply_distance ||
-    				  (routes[reply_order_id].distance == reply_distance && routes[reply_order_id].robotId > reply_robot_id))) {
+    				  (routes[reply_order_id].distance == reply_distance && routes[reply_order_id].robotId >= reply_robot_id))) {
     			  routes[reply_order_id].distance = reply_distance;
     			  routes[reply_order_id].robotId = reply_robot_id;
     			  routes[reply_order_id].path1 = reply_path1;
@@ -239,14 +247,27 @@ void createServer() {
     				  break;	// atleast one route exists
     		  }
     		  if (i == order_reply_count[reply_order_id].size()) {
+
     			  // no route exist
+    			  // add route to the noroute_order list
     			  mtx1.lock();
     			  {
-    				  cout << "no route exits for order " << reply_order_id << "\n";
+    				  cout << "no route exist for order " << reply_order_id << "\n";
     				  noroute_order.push_back(reply_order_id);
-    				  cout << "added order to noroute_order list " << reply_order_id << "\n";
+    				  cout << "added order to noroute_order list with size " << noroute_order.size() << "\n";
     			  }
     			  mtx1.unlock();
+
+    			 // remove from pending order to process next order
+    			  mtx.lock();
+    			  {
+    				  pop_heap(pending_order.begin(), pending_order.end(), greater<int>());
+    				  pending_order.pop_back();
+    			  }
+    			  mtx.unlock();
+
+    			  // allow consensus to select next available order
+    			  nextOrder = true;
     			  order_reply_count[reply_order_id].clear();
 
     		  }
@@ -254,6 +275,7 @@ void createServer() {
 
 
     			  // freeze the grid cell
+    			  cout << "before updateGrid, reply_order_id " << reply_order_id << "\n";
     			  updateGrid(BLOCK_CELL, routes[reply_order_id], routes[reply_order_id].robotId == myDetails.robotId);
     			  cout << "grid is freezed ... can proceed to work for next order\n";
 
@@ -320,15 +342,22 @@ void createServer() {
 
     	  mtx1.lock();
     	  {
-    		  if (noroute_order.size() > 0) {
+//    		  if (noroute_order.size() > 0) {
     			  mtx.lock();
     			  {
-    	    		  pending_order.push_back(noroute_order.front());
-    	    		  push_heap(pending_order.begin(), pending_order.end(), greater<int>());
+    				  while (noroute_order.size() > 0) {
+
+						  pending_order.push_back(noroute_order.front());
+						  push_heap(pending_order.begin(), pending_order.end(), greater<int>());
+
+						  noroute_order.pop_front();
+    				  }
+
+    				  cout << "pending order size " << pending_order.size() << "\n";
     			  }
     			  mtx.unlock();
-    			  noroute_order.pop_front();
-    		  }
+//    			  noroute_order.pop_front();
+
     	  }
     	  mtx1.unlock();
 
@@ -383,9 +412,10 @@ void createServer() {
     	  cout << "Consensus Value Disagreed, proposing new value \n";
     	  proposeConsensusValue();
       }
-      close(new_socket);
     }
 
+    cout << "closing socket\n";
+    close(new_socket);
 	cout << "-------------------------------end createServer()----------------------------------------\n";
 
 }
@@ -419,6 +449,7 @@ void processOrder() {
 		{
 			if (pending_order.size() > 0) {
 				isOrderExist = true;
+				std::cout << "order exists in pending order queue\n";
 			}
 		}
 		mtx.unlock();
@@ -559,7 +590,7 @@ void computeRoute(Order order) {
 		int msg;
 		msg = ACTIVE; // this robot is currently active, can't participate
 
-		routes[order.orderId].distance = -1; // implies active state and has not participated in this item delivery
+//		routes[order.orderId].distance = INT_MAX; // implies active state and has not participated in this item delivery
 
 		vector<int> msgs;
 
@@ -600,9 +631,12 @@ void computeRoute(Order order) {
 //		routes[order.orderId].path1 = path1;
 //		routes[order.orderId].path2 = path2;
 
+		cout << "in compute route " << path1.size() << ", " << path2.size() << "\n";
+
 		if (path1.size() == 0 || path1.size() == 0) {
 			msgs.push_back(NO_ROUTE);	// msg-3.1
 //			broadcastMsgToRobot(msgs);
+			cout << "mentioning no route as path is zero\n";
 		}
 
 		else {
