@@ -439,6 +439,8 @@ int main() {
 
 //  insertItems();
 
+  std::ofstream ofs("out-log.txt", std::ofstream::trunc);
+
 
   myDetails.orderQueue = 10;
   myDetails.exitQueue = 10;

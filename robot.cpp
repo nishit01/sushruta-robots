@@ -45,6 +45,7 @@ std::mutex mtx;
 std::mutex mtx1;
 std::mutex mtx2;
 std::mutex mtx3;
+std::mutex mtx5;
 
 // Function Prototype
 void createServer();
@@ -268,7 +269,7 @@ void createServer() {
 
     			  // allow consensus to select next available order
     			  nextOrder = true;
-    			  cout << "next order put to true\n";
+    			  cout << "#########################################next order put to true#########################################\n";
     			  order_reply_count[reply_order_id].clear();
 
     		  }
@@ -277,8 +278,12 @@ void createServer() {
 
     			  // freeze the grid cell
     			  cout << "before updateGrid, reply_order_id " << reply_order_id << "\n";
-    			  updateGrid(BLOCK_CELL, routes[reply_order_id], routes[reply_order_id].robotId == myDetails.robotId);
-    			  cout << "grid is freezed ... can proceed to work for next order\n";
+    			  mtx5.lock();
+    			  {
+    				  updateGrid(BLOCK_CELL, routes[reply_order_id], routes[reply_order_id].robotId == myDetails.robotId);
+    			  }
+    			  mtx5.unlock();
+    		      cout << "grid is freezed ... can proceed to work for next order\n";
 
     			  cout << "Leader Elected " << routes[reply_order_id].robotId << "\n";
 				  cout << "Leader Distance Found " << routes[reply_order_id].distance << "\n";
@@ -311,8 +316,8 @@ void createServer() {
 					  mtx.unlock();
 
 					  nextOrder = true;	// set nextOrder for proposing next consensus value
-					  cout << "next order put to true\n";
-					  cout << "set nextOrder to true to propose new consensus value\n";
+					  cout << "#########################################next order put to true#########################################\n";
+					  cout << "#########################################set nextOrder to true to propose new consensus value#########################################\n";
 
 					  thread th1(moveRobot, reply_order_id);
 	    			  th1.detach();
@@ -328,7 +333,7 @@ void createServer() {
 					  mtx.unlock();
 
 					  nextOrder = true;
-					  cout << "next order put to true\n";
+					  cout << "#########################################next order put to true#########################################\n";
 				  }
     		  }
     	  }
@@ -339,8 +344,12 @@ void createServer() {
     	  read(new_socket, &orderId, sizeof(int));
 
 //    	  cout << "Order Delivered\n";
-
-    	  updateGrid(FREE_CELL, routes[orderId], routes[orderId].robotId == myDetails.robotId);
+    	  mtx5.lock();
+    	  {
+    		  updateGrid(FREE_CELL, routes[orderId], routes[orderId].robotId == myDetails.robotId);
+    	  }
+    	  mtx5.unlock();
+//    	  updateGrid(FREE_CELL, routes[orderId], routes[orderId].robotId == myDetails.robotId);
 
     	  mtx1.lock();
     	  {
@@ -412,7 +421,12 @@ void createServer() {
 
       } else if (msg == CONSENSUS_VALUE_DISAGREED) {
     	  cout << "Consensus Value Disagreed, proposing new value \n";
-    	  proposeConsensusValue();
+//    	  if (nextOrder)
+//    	  proposeConsensusValue();
+    	  if (!nextOrder) {
+    		  nextOrder = true;
+    		  cout << "###########################################3set next order as true###########################################\n";
+    	  }
       }
     }
 
@@ -440,7 +454,7 @@ void processOrder() {
 
 		while(1) {
 			if (nextOrder) {	// boolean variable to look into next order i.e. go for next min. consensus value
-				cout << "ready to propose next consensus value\n";
+				cout << "#########################################ready to propose next consensus value#########################################\n";
 				break;
 			}
 			else {
@@ -463,7 +477,7 @@ void processOrder() {
 
 		if (isOrderExist) {
 			nextOrder = false;
-			cout << "next order put to false\n";
+			cout << "#########################################next order put to false#########################################\n";
 			proposeConsensusValue();	// propose consensus value to agree on the which order to process
 		} else {
 			sleep(2);
