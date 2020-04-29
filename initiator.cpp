@@ -42,11 +42,6 @@ void createItems() {
 	cin >> item_count;
 	n = item_count;
 
-	// items = (Item *)malloc(item_count*sizeof(Item));
-	// Item items[n];
-	//Coords coords;
-
-//  items = (struct Item *)malloc(n*sizeof(struct Item));
 	items = new Item[n];
 
 	for (i = 0; i < n; i++) {
@@ -61,7 +56,6 @@ void createItems() {
 		printMsg("initiator.cpp:createItem() -> Item-" + to_string(items[i].itemId) + " successfully placed");
 		printMsg("==============================================================");
 	}
-	// printGrid();
 }
 
 /*
@@ -73,14 +67,11 @@ void placeRobots() {
 
 	int i;
 	Coords coord;
-//  cout << "in place robots\n";
 
-//  cout << "size " << (sizeof(robots)/sizeof(robots[0])) << "\n";
 
 	for (i = 0; i < robot_count; i++) {
 		robots[i].robotId = i;
 		robots[i].state = PASSIVE;
-//    robots[i].state = ACTIVE;
 		cout << "enter coords for robot-" << robots[i].robotId << ": ";
 		cin >> coord.x >> coord.y;
 		robots[i].currentCoords = coord;
@@ -338,21 +329,14 @@ int main() {
 
 
 	cin >> robot_count >> station_count >> grid_size;
-	// robot_count = 4;
-	// station_count = 2;
-	//  item_count = 5;
-	// grid_size = 10;
 
-	//int grid[10][10];
 	grid = (int **)malloc(grid_size * sizeof(int *));
 	int i;
 	for (i = 0; i < grid_size; i++)
 		grid[i] = (int *)malloc(grid_size * sizeof(int));
 
-	//robots = (Robot *)malloc(robot_count*sizeof(Robot));
 	robots = new Robot[robot_count];
 	stations = (Station *)malloc(station_count * sizeof(Station));
-	// items = (Item *)malloc(item_count*sizeof(Item));
 
 
 	createItems();
