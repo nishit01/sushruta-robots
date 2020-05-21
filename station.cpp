@@ -291,9 +291,10 @@ void placeOrder() {
 	while (1) {
 		showItems(items);
 		cout << "Enter Item-ID to place order for: ";
-
 		// Task-1
-		cin >> itemId;
+		do {
+			cin >> itemId;
+		} while (itemId < 0 || itemId >= item_count);
 		item = items[itemId];
 		printMsg("Item Name: " + string(items[itemId].name));
 		printMsg("Item ID: " + to_string(items[itemId].itemId));
