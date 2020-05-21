@@ -290,9 +290,9 @@ void placeOrder() {
 
 	while (1) {
 		showItems(items);
-		cout << "Enter Item-ID to place order for: ";
 		// Task-1
 		do {
+			cout << "Enter Item-ID to place order for (Within 0-" << item_count - 1 <<< < ") :";
 			cin >> itemId;
 		} while (itemId < 0 || itemId >= item_count);
 		item = items[itemId];
