@@ -138,8 +138,8 @@ void createServer() {
 			read(new_socket, &orderId, sizeof(int));	// msg-2
 			read(new_socket, &robotId, sizeof(int));	// msg-3
 
-			cout << "Order: " << orderId << " is delivered by Robot " << robotId << "\n";
-			string str = "Order: " + to_string(orderId) + " is delivered by Robot " + to_string(robotId) + "\n";
+			cout << "Item: " << orderId << " is delivered by Robot " << robotId << "\n";
+			string str = "Item: " + to_string(orderId) + " is delivered by Robot " + to_string(robotId) + "\n";
 			writeToLog(str);
 
 		}
@@ -292,7 +292,7 @@ void placeOrder() {
 		showItems(items);
 		// Task-1
 		do {
-			cout << "Enter Item-ID to place order for (Within 0-" << item_count - 1 <<< < ") :";
+			cout << "Enter Item-ID to place order for (Within 0-" << item_count - 1 << ") :";
 			cin >> itemId;
 		} while (itemId < 0 || itemId >= item_count);
 		item = items[itemId];
@@ -313,7 +313,7 @@ void placeOrder() {
 				break;
 		}
 
-		string str = "New Order with item-id " + to_string(item.itemId) + " placed\n";
+		string str = "Item-id " + to_string(item.itemId) + " of order placed\n";
 		writeToLog(str);
 
 		order.orderId = tmpId;
@@ -333,7 +333,7 @@ void placeOrder() {
 
 
 
-		printMsg("Order-" + to_string(order.orderId) + " Successfully Placed");
+		printMsg("Item number " + to_string(order.orderId) + " of the Order is Successfully Placed");
 
 		// check item availability by requesting all stations
 

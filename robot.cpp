@@ -487,7 +487,7 @@ void moveRobot(int orderId) {
 		cout << "I am at location: " << path2[i].first << ", " << path2[i].second << "\n";
 	}
 
-	cout << "Order Delivered\n";
+	cout << "Item Delivered\n";
 
 
 	pair<int, int> cell = path2[path2.size() - 1];
